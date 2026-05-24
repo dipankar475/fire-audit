@@ -720,11 +720,358 @@
     text-align: center;
     line-height: 1.6;
   }
+
+  /* ── PHOTO EVIDENCE ── */
+  .photo-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 5px 8px;
+    cursor: pointer;
+    color: var(--text-muted);
+    font-size: 14px;
+    transition: all 0.15s;
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    white-space: nowrap;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 11px;
+    font-weight: 500;
+  }
+  .photo-btn:hover { border-color: var(--amber); color: var(--amber); background: rgba(255,140,0,0.08); }
+  .photo-btn.has-photos { border-color: var(--amber); color: var(--amber); background: rgba(255,140,0,0.08); }
+  .photo-count-badge {
+    background: var(--amber);
+    color: #000;
+    border-radius: 10px;
+    font-size: 9px;
+    font-weight: 700;
+    padding: 1px 5px;
+    line-height: 1.4;
+  }
+  .thumb-strip {
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+    margin-top: 4px;
+  }
+  .thumb-img {
+    width: 36px;
+    height: 36px;
+    object-fit: cover;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+    cursor: pointer;
+    transition: border-color 0.15s;
+  }
+  .thumb-img:hover { border-color: var(--amber); }
+
+  /* ── PHOTO MODAL ── */
+  #photoModal {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.75);
+    z-index: 8000;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    backdrop-filter: blur(4px);
+  }
+  #photoModal.open { display: flex; }
+  .photo-modal-box {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    width: 100%;
+    max-width: 620px;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 24px 80px rgba(0,0,0,0.7);
+  }
+  .photo-modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 24px 0;
+    margin-bottom: 16px;
+  }
+  .photo-modal-title { font-size: 15px; font-weight: 700; }
+  .photo-modal-clause { font-size: 11px; color: var(--text-muted); font-family: 'DM Mono', monospace; margin-top: 2px; }
+  .modal-close-btn {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    width: 32px; height: 32px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    color: var(--text-dim);
+    font-size: 16px;
+    flex-shrink: 0;
+    transition: all 0.15s;
+  }
+  .modal-close-btn:hover { border-color: var(--danger); color: var(--danger); }
+  .photo-modal-body { padding: 0 24px 24px; }
+  .photo-capture-area {
+    border: 2px dashed var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    text-align: center;
+    margin-bottom: 16px;
+    transition: border-color 0.2s;
+  }
+  .photo-capture-area:hover { border-color: var(--amber); }
+  .capture-icon { font-size: 32px; margin-bottom: 8px; }
+  .capture-text { font-size: 13px; color: var(--text-dim); margin-bottom: 16px; }
+  .capture-btns { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+  .capture-btn {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 9px 16px;
+    cursor: pointer;
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.15s;
+  }
+  .capture-btn:hover { border-color: var(--amber); color: var(--amber); }
+  .capture-btn.primary-capture {
+    background: linear-gradient(135deg, #FF8C00, #FFB700);
+    border-color: transparent;
+    color: #000;
+    font-weight: 700;
+  }
+  .capture-btn.primary-capture:hover { transform: translateY(-1px); box-shadow: 0 4px 14px rgba(255,140,0,0.4); }
+
+  /* Camera viewfinder */
+  .camera-wrap {
+    display: none;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 16px;
+    align-items: center;
+  }
+  .camera-wrap.active { display: flex; }
+  #cameraFeed {
+    width: 100%;
+    max-width: 480px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: #000;
+  }
+  .camera-controls { display: flex; gap: 10px; }
+
+  /* Photo gallery inside modal */
+  .evidence-gallery {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+    gap: 10px;
+    margin-top: 8px;
+  }
+  .evidence-card {
+    position: relative;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  .evidence-card img {
+    width: 100%;
+    height: 110px;
+    object-fit: cover;
+    display: block;
+  }
+  .evidence-card-footer {
+    padding: 6px 8px;
+    font-size: 10px;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .evidence-delete {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 14px;
+    padding: 0;
+    transition: color 0.15s;
+  }
+  .evidence-delete:hover { color: var(--danger); }
+
+  /* ── SAVE / LOAD MODAL ── */
+  #saveModal {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.75);
+    z-index: 8000;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    backdrop-filter: blur(4px);
+  }
+  #saveModal.open { display: flex; }
+  .save-modal-box {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    width: 100%;
+    max-width: 560px;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 24px 80px rgba(0,0,0,0.7);
+    padding: 28px;
+  }
+  .save-modal-title { font-size: 18px; font-weight: 700; margin-bottom: 20px; display: flex; align-items: center; justify-content: space-between; }
+  .saved-report-list { display: flex; flex-direction: column; gap: 10px; margin-top: 16px; }
+  .saved-report-item {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    transition: border-color 0.15s;
+  }
+  .saved-report-item:hover { border-color: var(--border-bright); }
+  .sri-icon { font-size: 20px; flex-shrink: 0; }
+  .sri-info { flex: 1; min-width: 0; }
+  .sri-name { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .sri-meta { font-size: 11px; color: var(--text-muted); font-family: 'DM Mono', monospace; margin-top: 2px; }
+  .sri-actions { display: flex; gap: 6px; flex-shrink: 0; }
+  .sri-btn {
+    background: var(--bg4);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 5px 10px;
+    cursor: pointer;
+    color: var(--text-dim);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 11px;
+    font-weight: 500;
+    transition: all 0.15s;
+  }
+  .sri-btn:hover { border-color: var(--border-bright); color: var(--text); }
+  .sri-btn.load { color: var(--safe); border-color: rgba(0,196,140,0.3); }
+  .sri-btn.load:hover { background: rgba(0,196,140,0.1); }
+  .sri-btn.del { color: var(--danger); border-color: rgba(255,59,0,0.3); }
+  .sri-btn.del:hover { background: rgba(255,59,0,0.1); }
+  .save-name-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 4px;
+  }
+  .save-name-input {
+    flex: 1;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 12px;
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .save-name-input:focus { border-color: var(--safe); }
+  .empty-reports { text-align: center; padding: 32px; color: var(--text-muted); font-size: 13px; }
+  .empty-reports-icon { font-size: 32px; margin-bottom: 8px; }
+  .save-success-toast {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: rgba(0,196,140,0.15);
+    border: 1px solid rgba(0,196,140,0.4);
+    border-radius: 10px;
+    padding: 12px 18px;
+    color: var(--safe);
+    font-size: 13px;
+    font-weight: 600;
+    z-index: 9998;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transform: translateY(80px);
+    opacity: 0;
+    transition: all 0.3s cubic-bezier(0.4,0,0.2,1);
+    pointer-events: none;
+  }
+  .save-success-toast.show { transform: translateY(0); opacity: 1; }
+  #hiddenFileInput { display: none; }
+  #hiddenCameraInput { display: none; }
+  canvas#photoCanvas { display: none; }
 </style>
 </head>
 <body>
 
-<!-- ══ AUTH OVERLAY ══ -->
+<!-- ══ PHOTO EVIDENCE MODAL ══ -->
+<div id="photoModal">
+  <div class="photo-modal-box">
+    <div class="photo-modal-header">
+      <div>
+        <div class="photo-modal-title">📷 Evidence Photos</div>
+        <div class="photo-modal-clause" id="photoModalClause"></div>
+      </div>
+      <button class="modal-close-btn" onclick="closePhotoModal()">✕</button>
+    </div>
+    <div class="photo-modal-body">
+      <div class="photo-capture-area">
+        <div class="capture-icon">📸</div>
+        <div class="capture-text">Capture or upload photos as evidence for this clause</div>
+        <div class="capture-btns">
+          <button class="capture-btn primary-capture" onclick="openCamera()">📷 Use Camera</button>
+          <button class="capture-btn" onclick="document.getElementById('hiddenCameraInput').click()">📱 Mobile Camera</button>
+          <button class="capture-btn" onclick="document.getElementById('hiddenFileInput').click()">🖼 Upload File</button>
+        </div>
+      </div>
+      <!-- Live camera viewfinder -->
+      <div class="camera-wrap" id="cameraWrap">
+        <video id="cameraFeed" autoplay muted playsinline></video>
+        <div class="camera-controls">
+          <button class="capture-btn primary-capture" onclick="snapPhoto()">📸 Snap Photo</button>
+          <button class="capture-btn" onclick="stopCamera()">✕ Close Camera</button>
+        </div>
+      </div>
+      <canvas id="photoCanvas"></canvas>
+      <div id="evidenceGallery" class="evidence-gallery"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ SAVE / LOAD MODAL ══ -->
+<div id="saveModal">
+  <div class="save-modal-box">
+    <div class="save-modal-title">
+      <span>💾 My Saved Reports</span>
+      <button class="modal-close-btn" onclick="closeSaveModal()">✕</button>
+    </div>
+    <div style="font-size:12px; color:var(--text-muted); margin-bottom:16px">Reports are saved per user and persist across sessions.</div>
+    <div style="font-size:11px; font-weight:600; letter-spacing:1px; text-transform:uppercase; color:var(--text-muted); margin-bottom:8px">Save Current Audit</div>
+    <div class="save-name-row">
+      <input type="text" class="save-name-input" id="saveNameInput" placeholder="e.g. ABC Complex — Block A Audit">
+      <button class="btn-primary" onclick="doSaveReport()">💾 Save</button>
+    </div>
+    <div style="font-size:11px; color:var(--text-muted); margin-bottom:20px; margin-top:4px">Leave blank to auto-name from facility &amp; date.</div>
+    <div style="font-size:11px; font-weight:600; letter-spacing:1px; text-transform:uppercase; color:var(--text-muted); margin-bottom:8px">Saved Reports</div>
+    <div id="savedReportList"></div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="save-success-toast" id="saveToast"></div>
+
+<!-- Hidden inputs -->
+<input type="file" id="hiddenFileInput" accept="image/*" multiple onchange="handleFileUpload(event)">
+<input type="file" id="hiddenCameraInput" accept="image/*" capture="environment" onchange="handleFileUpload(event)">
+
 <div id="authOverlay">
   <div class="auth-box">
     <div class="auth-logo">
@@ -801,6 +1148,7 @@
     <button class="nav-btn" onclick="showPage('nc')">NC Report</button>
     <button class="nav-btn" onclick="showPage('summary')">Summary</button>
     <button class="btn-primary" onclick="generateNCReport()">⬇ Export NC Report</button>
+    <button class="btn-secondary" onclick="openSaveModal()" style="display:flex;align-items:center;gap:6px;" id="saveReportBtn">💾 Save Report</button>
     <div class="auth-user-chip" id="userChip" style="display:none">
       <div class="auth-avatar" id="userAvatar"></div>
       <span class="auth-user-name" id="userDisplayName"></span>
@@ -832,6 +1180,11 @@
           <div class="stat-row"><span class="stat-label">Not Applicable</span><span class="stat-val na" id="sb-na">0</span></div>
         </div>
       </div>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-title">Saved Reports</div>
+      <div id="sidebarSavedReports" style="padding: 4px 0;"></div>
+      <button onclick="openSaveModal()" style="width:100%; margin-top:6px; background:var(--bg3); border:1px solid var(--border); border-radius:6px; padding:8px; color:var(--text-dim); font-family:'DM Sans',sans-serif; font-size:12px; cursor:pointer; transition:all 0.15s;" onmouseover="this.style.borderColor='var(--border-bright)'" onmouseout="this.style.borderColor='var(--border)'">＋ Manage Reports</button>
     </div>
     <div class="sidebar-section">
       <div class="sidebar-title">Categories</div>
@@ -1137,7 +1490,7 @@ const CATEGORIES = [
 const state = {};
 CATEGORIES.forEach(cat => {
   cat.items.forEach(item => {
-    state[item.id] = { status: null, remarks: '' };
+    state[item.id] = { status: null, remarks: '', photos: [] };
   });
 });
 
@@ -1176,6 +1529,7 @@ function renderChecklist() {
               <th>Requirement</th>
               <th style="width:150px">Status</th>
               <th style="width:200px">Remarks / Finding</th>
+              <th style="width:100px">Evidence</th>
             </tr>
           </thead>
           <tbody id="tbody-${cat.id}">
@@ -1211,12 +1565,22 @@ function renderChecklist() {
             onchange="setRemarks('${item.id}', this.value)"
             oninput="setRemarks('${item.id}', this.value)">${state[item.id].remarks}</textarea>
         </td>
+        <td>
+          <button class="photo-btn" id="photobtn-${item.id}" onclick="openPhotoModal('${item.id}')">
+            📷 Add
+          </button>
+          <div class="thumb-strip" id="thumbs-${item.id}"></div>
+        </td>
       `;
       tbody.appendChild(tr);
     });
   });
 
   renderSidebar();
+  // Restore photo button states after render
+  setTimeout(() => {
+    CATEGORIES.forEach(cat => { cat.items.forEach(item => { updatePhotoButton(item.id); }); });
+  }, 50);
 }
 
 function toggleCat(id) {
@@ -1701,6 +2065,8 @@ function activateSession(user) {
   // Pre-fill auditor name
   const auditorInput = document.getElementById('auditorName');
   if (auditorInput && !auditorInput.value) auditorInput.value = user.name;
+  // Refresh saved reports sidebar
+  setTimeout(renderSidebarSavedReports, 100);
 }
 
 function doLogout() {
@@ -1739,6 +2105,309 @@ document.addEventListener('keydown', function(e) {
 document.getElementById('auditDate').valueAsDate = new Date();
 renderChecklist();
 updateScores();
+
+// ═══════════════════════════════════════════════════════════
+//  PHOTO EVIDENCE SYSTEM
+// ═══════════════════════════════════════════════════════════
+let currentPhotoItemId = null;
+let cameraStream = null;
+
+function openPhotoModal(itemId) {
+  currentPhotoItemId = itemId;
+  const modal = document.getElementById('photoModal');
+  modal.classList.add('open');
+
+  // Find item info for the title
+  let found = null;
+  CATEGORIES.forEach(cat => { cat.items.forEach(item => { if (item.id === itemId) found = item; }); });
+  document.getElementById('photoModalClause').textContent = found ? `${found.code} — ${found.desc.substring(0, 60)}…` : itemId;
+
+  renderEvidenceGallery();
+}
+
+function closePhotoModal() {
+  document.getElementById('photoModal').classList.remove('open');
+  stopCamera();
+  currentPhotoItemId = null;
+}
+
+function renderEvidenceGallery() {
+  if (!currentPhotoItemId) return;
+  const photos = state[currentPhotoItemId].photos || [];
+  const gallery = document.getElementById('evidenceGallery');
+  if (photos.length === 0) {
+    gallery.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:16px 0; color:var(--text-muted); font-size:12px">No photos added yet. Capture or upload evidence above.</div>`;
+  } else {
+    gallery.innerHTML = photos.map((p, i) => `
+      <div class="evidence-card">
+        <img src="${p.data}" alt="Evidence ${i+1}" onclick="viewFullPhoto('${p.data}')">
+        <div class="evidence-card-footer">
+          <span>${p.ts}</span>
+          <button class="evidence-delete" onclick="deletePhoto(${i})" title="Delete">🗑</button>
+        </div>
+      </div>
+    `).join('');
+  }
+  updatePhotoButton(currentPhotoItemId);
+}
+
+function updatePhotoButton(itemId) {
+  const btn = document.getElementById(`photobtn-${itemId}`);
+  const thumbs = document.getElementById(`thumbs-${itemId}`);
+  if (!btn) return;
+  const photos = state[itemId].photos || [];
+  if (photos.length > 0) {
+    btn.className = 'photo-btn has-photos';
+    btn.innerHTML = `📷 <span class="photo-count-badge">${photos.length}</span>`;
+    thumbs.innerHTML = photos.slice(0,3).map(p => `<img class="thumb-img" src="${p.data}" onclick="openPhotoModal('${itemId}')" title="View evidence">`).join('');
+  } else {
+    btn.className = 'photo-btn';
+    btn.innerHTML = '📷 Add';
+    thumbs.innerHTML = '';
+  }
+}
+
+function deletePhoto(index) {
+  if (!currentPhotoItemId) return;
+  state[currentPhotoItemId].photos.splice(index, 1);
+  renderEvidenceGallery();
+}
+
+function viewFullPhoto(dataUrl) {
+  const w = window.open('');
+  w.document.write(`<img src="${dataUrl}" style="max-width:100%;height:auto;">`);
+}
+
+// ── Camera (webcam) ──
+async function openCamera() {
+  try {
+    cameraStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
+    const video = document.getElementById('cameraFeed');
+    video.srcObject = cameraStream;
+    document.getElementById('cameraWrap').classList.add('active');
+  } catch (err) {
+    showToast('⚠️ Camera access denied. Use "Upload File" instead.', '#FF8C00');
+  }
+}
+
+function stopCamera() {
+  if (cameraStream) { cameraStream.getTracks().forEach(t => t.stop()); cameraStream = null; }
+  document.getElementById('cameraWrap').classList.remove('active');
+  const video = document.getElementById('cameraFeed');
+  video.srcObject = null;
+}
+
+function snapPhoto() {
+  const video = document.getElementById('cameraFeed');
+  const canvas = document.getElementById('photoCanvas');
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  canvas.getContext('2d').drawImage(video, 0, 0);
+  const data = canvas.toDataURL('image/jpeg', 0.85);
+  addPhotoToState(data);
+  stopCamera();
+}
+
+// ── File / Mobile camera upload ──
+function handleFileUpload(event) {
+  const files = Array.from(event.target.files);
+  files.forEach(file => {
+    const reader = new FileReader();
+    reader.onload = e => addPhotoToState(e.target.result);
+    reader.readAsDataURL(file);
+  });
+  event.target.value = '';
+}
+
+function addPhotoToState(dataUrl) {
+  if (!currentPhotoItemId) return;
+  const now = new Date();
+  const ts = now.toLocaleDateString('en-IN') + ' ' + now.toLocaleTimeString('en-IN', { hour:'2-digit', minute:'2-digit' });
+  if (!state[currentPhotoItemId].photos) state[currentPhotoItemId].photos = [];
+  state[currentPhotoItemId].photos.push({ data: dataUrl, ts });
+  renderEvidenceGallery();
+}
+
+// ═══════════════════════════════════════════════════════════
+//  SAVE / LOAD REPORTS (per-user)
+// ═══════════════════════════════════════════════════════════
+function getReportsKey() {
+  const session = getSession();
+  return session ? `firesafe_reports_${session.email}` : null;
+}
+
+function getSavedReports() {
+  const key = getReportsKey();
+  if (!key) return [];
+  try { return JSON.parse(localStorage.getItem(key)) || []; } catch { return []; }
+}
+
+function setSavedReports(reports) {
+  const key = getReportsKey();
+  if (!key) return;
+  localStorage.setItem(key, JSON.stringify(reports));
+}
+
+function openSaveModal() {
+  const modal = document.getElementById('saveModal');
+  modal.classList.add('open');
+  // Pre-fill name suggestion
+  const facility = document.getElementById('facilityName').value || '';
+  const date = document.getElementById('auditDate').value || '';
+  const suggestion = [facility, date].filter(Boolean).join(' — ');
+  document.getElementById('saveNameInput').value = suggestion;
+  renderSavedReportList();
+}
+
+function closeSaveModal() {
+  document.getElementById('saveModal').classList.remove('open');
+}
+
+function doSaveReport() {
+  const session = getSession();
+  if (!session) { showToast('⚠️ Please sign in to save reports.', '#FF8C00'); return; }
+
+  const facility = document.getElementById('facilityName').value || 'Untitled Facility';
+  const date = document.getElementById('auditDate').value || new Date().toISOString().slice(0,10);
+  const auditor = document.getElementById('auditorName').value || session.name;
+  let name = document.getElementById('saveNameInput').value.trim();
+  if (!name) name = `${facility} — ${date}`;
+
+  const auditInfo = {
+    facilityName: facility,
+    auditDate: date,
+    auditorName: auditor,
+    buildingZone: document.getElementById('buildingZone').value,
+    occupancyType: document.getElementById('occupancyType').value,
+    refNumber: document.getElementById('refNumber').value,
+    scopeRemark: document.getElementById('scopeRemark').value,
+  };
+
+  // Capture state (photos stored separately — only data URIs)
+  const stateSnapshot = {};
+  Object.keys(state).forEach(k => {
+    stateSnapshot[k] = { status: state[k].status, remarks: state[k].remarks, photos: (state[k].photos || []) };
+  });
+
+  const report = {
+    id: Date.now().toString(),
+    name,
+    savedAt: new Date().toISOString(),
+    savedBy: session.name,
+    auditInfo,
+    state: stateSnapshot,
+  };
+
+  const reports = getSavedReports();
+  reports.unshift(report); // newest first
+  // Keep max 20 reports per user
+  if (reports.length > 20) reports.splice(20);
+  setSavedReports(reports);
+
+  renderSavedReportList();
+  renderSidebarSavedReports();
+  showToast(`✅ Report saved: "${name}"`, 'var(--safe)');
+}
+
+function loadReport(id) {
+  const reports = getSavedReports();
+  const report = reports.find(r => r.id === id);
+  if (!report) return;
+
+  if (!confirm(`Load "${report.name}"?\n\nThis will replace your current audit data.`)) return;
+
+  // Restore audit info
+  Object.keys(report.auditInfo).forEach(k => {
+    const el = document.getElementById(k);
+    if (el) el.value = report.auditInfo[k] || '';
+  });
+
+  // Restore state
+  Object.keys(report.state).forEach(k => {
+    if (state[k]) {
+      state[k].status = report.state[k].status;
+      state[k].remarks = report.state[k].remarks;
+      state[k].photos = report.state[k].photos || [];
+    }
+  });
+
+  // Re-render
+  renderChecklist();
+  updateScores();
+  closeSaveModal();
+  showPage('audit');
+  showToast(`📂 Loaded: "${report.name}"`, 'var(--safe)');
+}
+
+function deleteReport(id) {
+  const reports = getSavedReports();
+  const report = reports.find(r => r.id === id);
+  if (!report) return;
+  if (!confirm(`Delete "${report.name}"? This cannot be undone.`)) return;
+  const updated = reports.filter(r => r.id !== id);
+  setSavedReports(updated);
+  renderSavedReportList();
+  renderSidebarSavedReports();
+  showToast('🗑 Report deleted.', '#FF8C00');
+}
+
+function renderSavedReportList() {
+  const reports = getSavedReports();
+  const container = document.getElementById('savedReportList');
+  if (reports.length === 0) {
+    container.innerHTML = `<div class="empty-reports"><div class="empty-reports-icon">📭</div>No saved reports yet. Fill the checklist and click Save.</div>`;
+    return;
+  }
+  container.innerHTML = `<div class="saved-report-list">` + reports.map(r => {
+    const d = new Date(r.savedAt);
+    const meta = `Saved ${d.toLocaleDateString('en-IN')} ${d.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'})} · ${r.savedBy}`;
+    return `
+      <div class="saved-report-item">
+        <div class="sri-icon">📋</div>
+        <div class="sri-info">
+          <div class="sri-name" title="${r.name}">${r.name}</div>
+          <div class="sri-meta">${meta}</div>
+        </div>
+        <div class="sri-actions">
+          <button class="sri-btn load" onclick="loadReport('${r.id}')">📂 Load</button>
+          <button class="sri-btn del" onclick="deleteReport('${r.id}')">🗑 Delete</button>
+        </div>
+      </div>
+    `;
+  }).join('') + `</div>`;
+}
+
+function renderSidebarSavedReports() {
+  const reports = getSavedReports();
+  const container = document.getElementById('sidebarSavedReports');
+  if (!container) return;
+  if (reports.length === 0) {
+    container.innerHTML = `<div style="font-size:11px; color:var(--text-muted); padding:4px 4px 6px; font-style:italic">No saved reports</div>`;
+    return;
+  }
+  container.innerHTML = reports.slice(0,3).map(r => {
+    const d = new Date(r.savedAt);
+    return `
+      <div style="padding:5px 4px; border-radius:5px; cursor:pointer; transition:background 0.12s;" onmouseover="this.style.background='var(--bg3)'" onmouseout="this.style.background=''" onclick="openSaveModal()">
+        <div style="font-size:12px; font-weight:500; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${r.name}">${r.name}</div>
+        <div style="font-size:10px; color:var(--text-muted); font-family:'DM Mono',monospace;">${d.toLocaleDateString('en-IN')}</div>
+      </div>
+    `;
+  }).join('');
+}
+
+// ── Toast notification ──
+function showToast(msg, color) {
+  const t = document.getElementById('saveToast');
+  t.textContent = msg;
+  t.style.color = color || 'var(--safe)';
+  t.style.borderColor = color ? color.replace('var(', '').replace(')', '') : 'rgba(0,196,140,0.4)';
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+// Refresh sidebar saved reports on load
+setTimeout(renderSidebarSavedReports, 200);
 </script>
 </body>
 </html>
