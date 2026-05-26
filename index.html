@@ -1,0 +1,1574 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Electrical Safety & Compliance Audit Tool</title>
+  <!-- PWA Manifest -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#0F172A">
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- SheetJS (XLSX) CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', 'ui-sans-serif', 'system-ui'],
+            outfit: ['Outfit', 'sans-serif']
+          },
+          colors: {
+            brand: {
+              50: '#fffbeb',
+              100: '#fef3c7',
+              200: '#fde68a',
+              300: '#fcd34d',
+              400: '#fbbf24',
+              500: '#f59e0b', // Safety Amber
+              600: '#d97706',
+              700: '#b45309',
+              800: '#92400e',
+              900: '#78350f',
+              950: '#451a03'
+            },
+            safety: {
+              red: '#EF4444',
+              amber: '#F59E0B',
+              green: '#10B981',
+              slate: '#64748B'
+            }
+          }
+        }
+      }
+    }
+  </script>
+  
+  <style>
+    /* Premium styling & Custom scrollbar */
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: rgba(100, 116, 139, 0.2);
+      border-radius: 4px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+      background: rgba(100, 116, 139, 0.4);
+    }
+    /* Signature Pad Styling */
+    .signature-canvas {
+      border: 2px dashed #CBD5E1;
+      border-radius: 8px;
+      cursor: crosshair;
+      touch-action: none;
+    }
+    /* PDF Report Formatting */
+    @media print {
+      body {
+        background: white !important;
+        color: black !important;
+      }
+      .no-print {
+        display: none !important;
+      }
+      .print-only {
+        display: block !important;
+      }
+      .page-break {
+        page-break-before: always;
+      }
+      .print-card {
+        border: 1px solid #E2E8F0 !important;
+        box-shadow: none !important;
+        background: white !important;
+      }
+    }
+    /* Glassmorphism utility */
+    .glass-nav {
+      background: rgba(15, 23, 42, 0.8);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+    }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-900 transition-colors duration-300 dark:bg-slate-950 dark:text-slate-100 min-h-screen flex flex-col">
+  <div id="app" class="flex-1 flex flex-col md:flex-row min-h-screen" v-cloak>
+    
+    <!-- Sidebar Navigation (Desktop) -->
+    <aside class="w-72 bg-slate-900 text-slate-100 flex-shrink-0 flex flex-col z-20 border-r border-slate-800 hidden md:flex">
+      <!-- Logo Header -->
+      <div class="p-6 border-b border-slate-800 flex items-center gap-3">
+        <div class="h-10 w-10 rounded-xl bg-amber-500 flex items-center justify-center shadow-lg shadow-amber-500/20">
+          <svg class="w-6 h-6 text-slate-950" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+          </svg>
+        </div>
+        <div>
+          <h1 class="font-outfit font-extrabold text-lg leading-tight tracking-tight text-white">SHAKTI AUDIT</h1>
+          <p class="text-xs text-amber-500 font-medium tracking-widest uppercase">EHS Compliance</p>
+        </div>
+      </div>
+      
+      <!-- Nav Items -->
+      <nav class="flex-1 px-4 py-6 space-y-1.5 overflow-y-auto custom-scrollbar">
+        <button 
+          v-for="item in navItems" 
+          :key="item.id"
+          @click="currentView = item.id"
+          class="w-full flex items-center justify-between px-4 py-3 rounded-xl transition-all duration-200 group text-sm font-semibold"
+          :class="currentView === item.id ? 'bg-amber-500 text-slate-950 shadow-md shadow-amber-500/10' : 'text-slate-400 hover:bg-slate-800 hover:text-white'"
+        >
+          <div class="flex items-center gap-3">
+            <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" :d="item.icon" />
+            </svg>
+            <span>{{ item.name }}</span>
+          </div>
+          <!-- Badge for Open NCs -->
+          <span 
+            v-if="item.id === 'capa' && openNCCount > 0"
+            class="px-2 py-0.5 text-xs font-bold rounded-full"
+            :class="currentView === 'capa' ? 'bg-slate-950 text-amber-500' : 'bg-red-500/20 text-red-400'"
+          >
+            {{ openNCCount }}
+          </span>
+        </button>
+      </nav>
+      
+      <!-- Footer Profile -->
+      <div class="p-4 border-t border-slate-800 bg-slate-950/40">
+        <div class="flex items-center gap-3 p-2 rounded-xl bg-slate-800/40 border border-slate-800/50">
+          <div class="h-10 w-10 rounded-lg bg-indigo-500/20 text-indigo-400 flex items-center justify-center font-bold text-sm">
+            {{ user.name.split(' ').map(n => n[0]).join('') }}
+          </div>
+          <div class="flex-1 min-w-0">
+            <h4 class="text-sm font-semibold text-white truncate">{{ user.name }}</h4>
+            <p class="text-xs text-slate-400 capitalize truncate">{{ user.role }}</p>
+          </div>
+          <button @click="toggleDarkMode" class="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800">
+            <svg v-if="darkMode" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707m0-12.728l.707.707m12.728 12.728l.707.707M12 8a4 4 0 100 8 4 4 0 000-8z" /></svg>
+            <svg v-else class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" /></svg>
+          </button>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Mobile Header & Navigation -->
+    <header class="md:hidden flex flex-col bg-slate-900 text-slate-100 z-30 sticky top-0 border-b border-slate-800">
+      <div class="flex items-center justify-between p-4">
+        <div class="flex items-center gap-3">
+          <div class="h-8 w-8 rounded-lg bg-amber-500 flex items-center justify-center">
+            <svg class="w-5 h-5 text-slate-950" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
+          </div>
+          <span class="font-outfit font-extrabold text-base tracking-tight">SHAKTI AUDIT</span>
+        </div>
+        
+        <div class="flex items-center gap-2">
+          <button @click="toggleDarkMode" class="p-2 rounded-lg text-slate-400 hover:text-white">
+            <svg v-if="darkMode" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707m0-12.728l.707.707m12.728 12.728l.707.707M12 8a4 4 0 100 8 4 4 0 000-8z" /></svg>
+            <svg v-else class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" /></svg>
+          </button>
+          
+          <button @click="mobileMenuOpen = !mobileMenuOpen" class="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path v-if="!mobileMenuOpen" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+              <path v-else stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+      </div>
+      
+      <!-- Mobile Dropdown Menu -->
+      <nav v-if="mobileMenuOpen" class="px-4 pb-4 border-t border-slate-800 space-y-1">
+        <button 
+          v-for="item in navItems" 
+          :key="item.id"
+          @click="currentView = item.id; mobileMenuOpen = false"
+          class="w-full flex items-center justify-between px-4 py-2.5 rounded-lg text-sm font-semibold transition-all duration-150"
+          :class="currentView === item.id ? 'bg-amber-500 text-slate-950' : 'text-slate-400 hover:bg-slate-800 hover:text-white'"
+        >
+          <div class="flex items-center gap-3">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" :d="item.icon" />
+            </svg>
+            <span>{{ item.name }}</span>
+          </div>
+          <span 
+            v-if="item.id === 'capa' && openNCCount > 0"
+            class="px-2 py-0.5 text-xs font-bold rounded-full bg-red-500/25 text-red-400"
+          >
+            {{ openNCCount }}
+          </span>
+        </button>
+      </nav>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="flex-1 flex flex-col min-w-0 bg-slate-50 dark:bg-slate-950 overflow-y-auto">
+      
+      <!-- Top Action Bar (Sync status, active notifications, offline toggle) -->
+      <section class="no-print bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-6 py-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h2 class="text-2xl font-bold font-outfit text-slate-800 dark:text-white tracking-tight flex items-center gap-2">
+            {{ getViewTitle() }}
+            <!-- Sync indicators -->
+            <span v-if="offlineMode" class="text-xs bg-amber-500/20 text-amber-500 px-2 py-0.5 rounded-full border border-amber-500/30 flex items-center gap-1 font-sans">
+              <span class="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span> Offline Mode
+            </span>
+            <span v-else class="text-xs bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-full border border-emerald-500/30 flex items-center gap-1 font-sans">
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Synced to Cloud
+            </span>
+          </h2>
+          <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Electrical Safety & EHS Audit Platform • India Edition</p>
+        </div>
+        
+        <!-- Utility Badges -->
+        <div class="flex items-center gap-3 w-full sm:w-auto">
+          <!-- Offline simulation toggle -->
+          <button 
+            @click="toggleOfflineMode"
+            class="px-3.5 py-1.5 text-xs font-semibold rounded-lg border transition-all duration-200 flex items-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-300 dark:border-slate-700"
+          >
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M18.364 5.636a9 9 0 010 12.728m0 0l-2.829-2.829m2.829 2.829L21 21M15.536 8.464a5 5 0 010 7.072m0 0l-2.829-2.829m-4.243 2.829a4.978 4.978 0 01-1.414-3.536 4.978 4.978 0 011.414-3.536m0 0L8.464 8.464" /></svg>
+            <span>Simulate {{ offlineMode ? 'Online' : 'Offline' }}</span>
+          </button>
+
+          <!-- Notification Bell -->
+          <div class="relative">
+            <button @click="showNotificationDrawer = !showNotificationDrawer" class="p-2 bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-300 rounded-lg transition-colors">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /></svg>
+              <span v-if="unreadNotificationsCount > 0" class="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full text-[10px] text-white flex items-center justify-center font-bold">{{ unreadNotificationsCount }}</span>
+            </button>
+            
+            <!-- Notification Drawer -->
+            <div v-if="showNotificationDrawer" class="absolute right-0 mt-2 w-80 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xl z-30 p-2">
+              <div class="flex items-center justify-between p-2 border-b border-slate-100 dark:border-slate-800">
+                <span class="font-bold text-sm">Alerts & Actions</span>
+                <button @click="clearNotifications" class="text-xs text-amber-500 hover:underline">Mark all read</button>
+              </div>
+              <div class="max-h-60 overflow-y-auto custom-scrollbar p-1">
+                <div v-if="notifications.length === 0" class="p-4 text-center text-xs text-slate-400">No new alerts</div>
+                <div v-for="notif in notifications" :key="notif.id" class="p-2.5 rounded-lg mb-1 text-xs hover:bg-slate-50 dark:hover:bg-slate-800 border-l-2" :class="notif.read ? 'border-transparent text-slate-500' : 'border-amber-500 bg-amber-500/5 text-slate-800 dark:text-slate-200'">
+                  <div class="font-bold mb-0.5 flex justify-between">
+                    <span>{{ notif.title }}</span>
+                    <span class="font-normal text-[10px] text-slate-400">{{ notif.time }}</span>
+                  </div>
+                  <p class="leading-relaxed">{{ notif.message }}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- View Containers -->
+      <div class="flex-1 p-6 md:p-8">
+        
+        <!-- ==================== DASHBOARD VIEW ==================== -->
+        <div v-if="currentView === 'dashboard'" class="space-y-6">
+          <!-- Top KPI grid -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            <!-- Total Audits -->
+            <div class="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800/80 shadow-sm flex items-center justify-between group hover:border-amber-500/40 transition-all duration-300">
+              <div>
+                <span class="text-xs font-semibold text-slate-500 dark:text-slate-400 tracking-wider uppercase">Total Audits Conducted</span>
+                <h3 class="text-4xl font-extrabold font-outfit text-slate-900 dark:text-white mt-1">{{ audits.length }}</h3>
+                <span class="text-xs text-emerald-500 flex items-center gap-1 mt-1.5 font-semibold">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>
+                  +12% vs last quarter
+                </span>
+              </div>
+              <div class="h-12 w-12 rounded-xl bg-amber-500/10 text-amber-500 flex items-center justify-center group-hover:scale-110 transition-transform">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" /></svg>
+              </div>
+            </div>
+
+            <!-- Open NCs -->
+            <div class="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800/80 shadow-sm flex items-center justify-between group hover:border-red-500/40 transition-all duration-300">
+              <div>
+                <span class="text-xs font-semibold text-slate-500 dark:text-slate-400 tracking-wider uppercase">Active Non-Conformances</span>
+                <h3 class="text-4xl font-extrabold font-outfit text-slate-900 dark:text-white mt-1">{{ openNCCount }}</h3>
+                <span class="text-xs text-red-500 flex items-center gap-1 mt-1.5 font-semibold">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                  {{ criticalNCCount }} Critical Severity NCs
+                </span>
+              </div>
+              <div class="h-12 w-12 rounded-xl bg-red-500/10 text-red-500 flex items-center justify-center group-hover:scale-110 transition-transform">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+              </div>
+            </div>
+
+            <!-- Critical Observations -->
+            <div class="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800/80 shadow-sm flex items-center justify-between group hover:border-orange-500/40 transition-all duration-300">
+              <div>
+                <span class="text-xs font-semibold text-slate-500 dark:text-slate-400 tracking-wider uppercase">High-Risk Equipment</span>
+                <h3 class="text-4xl font-extrabold font-outfit text-slate-900 dark:text-white mt-1">3</h3>
+                <span class="text-xs text-amber-500 flex items-center gap-1 mt-1.5 font-semibold">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                  Transformers/DG inspection due
+                </span>
+              </div>
+              <div class="h-12 w-12 rounded-xl bg-orange-500/10 text-orange-500 flex items-center justify-center group-hover:scale-110 transition-transform">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 9.172V5L8 4z" /></svg>
+              </div>
+            </div>
+
+            <!-- Average Compliance Score -->
+            <div class="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800/80 shadow-sm flex items-center justify-between group hover:border-emerald-500/40 transition-all duration-300">
+              <div>
+                <span class="text-xs font-semibold text-slate-500 dark:text-slate-400 tracking-wider uppercase">Average Compliance Score</span>
+                <h3 class="text-4xl font-extrabold font-outfit text-slate-900 dark:text-white mt-1">{{ avgComplianceScore }}%</h3>
+                
+                <!-- Simple progress bar container -->
+                <div class="w-36 bg-slate-100 dark:bg-slate-800 rounded-full h-2 mt-2.5 overflow-hidden">
+                  <div class="bg-emerald-500 h-2 rounded-full transition-all duration-500" :style="{ width: avgComplianceScore + '%' }"></div>
+                </div>
+              </div>
+              <div class="h-12 w-12 rounded-xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center group-hover:scale-110 transition-transform">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Mid Section: Main Charts & Heatmap -->
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <!-- Heatmap Grid -->
+            <div class="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm lg:col-span-2">
+              <div class="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800">
+                <div>
+                  <h4 class="font-bold text-base font-outfit">Site Safety Risk Heatmap</h4>
+                  <p class="text-xs text-slate-400">Clause non-compliance mappings vs local site areas</p>
+                </div>
+                <div class="flex items-center gap-2">
+                  <span class="inline-block w-2.5 h-2.5 rounded bg-red-500"></span> <span class="text-[10px] text-slate-400 mr-2">Critical</span>
+                  <span class="inline-block w-2.5 h-2.5 rounded bg-amber-500"></span> <span class="text-[10px] text-slate-400 mr-2">Major</span>
+                  <span class="inline-block w-2.5 h-2.5 rounded bg-emerald-500"></span> <span class="text-[10px] text-slate-400">Compliant</span>
+                </div>
+              </div>
+              
+              <!-- 5x5 Heatmap Matrix -->
+              <div class="mt-6 overflow-x-auto custom-scrollbar">
+                <table class="w-full text-center border-collapse">
+                  <thead>
+                    <tr class="text-xs font-semibold text-slate-400">
+                      <th class="p-2 text-left">Systems Module</th>
+                      <th class="p-2">HT/LT Panel</th>
+                      <th class="p-2">Transformer</th>
+                      <th class="p-2">DG Yard</th>
+                      <th class="p-2">Earthing Grid</th>
+                      <th class="p-2">UPS Room</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="(site, sIdx) in heatmapData" :key="sIdx" class="border-t border-slate-100 dark:border-slate-800 text-sm">
+                      <td class="p-3 text-left font-semibold text-slate-500 dark:text-slate-400">{{ site.name }}</td>
+                      <td v-for="(val, vIdx) in site.values" :key="vIdx" class="p-2">
+                        <div 
+                          class="mx-auto w-10 h-10 rounded-lg flex items-center justify-center font-bold text-xs shadow-sm transition-all duration-300 cursor-pointer hover:scale-105"
+                          :class="getHeatmapClass(val)"
+                        >
+                          {{ val }}
+                        </div>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <p class="text-[10px] text-slate-400 mt-4 italic">*Scores show total NC points. High numbers represent multiple pending violations of safety codes.</p>
+            </div>
+
+            <!-- Health Summary / Power Quality Trends -->
+            <div class="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col justify-between">
+              <div>
+                <h4 class="font-bold text-base font-outfit pb-4 border-b border-slate-100 dark:border-slate-800">Critical Infrastructure Health</h4>
+                
+                <!-- Items -->
+                <div class="mt-4 space-y-4">
+                  <!-- Transformer 01 -->
+                  <div class="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-slate-100 dark:border-slate-800">
+                    <div class="flex items-center gap-3">
+                      <div class="h-8 w-8 rounded-lg bg-emerald-500/10 text-emerald-500 flex items-center justify-center font-bold">T1</div>
+                      <div>
+                        <h5 class="text-xs font-bold">1000kVA Transformer Yard</h5>
+                        <p class="text-[10px] text-slate-400">Oil: 68°C • Breather: Dry (Blue)</p>
+                      </div>
+                    </div>
+                    <span class="px-2 py-0.5 text-[10px] font-bold bg-emerald-500/20 text-emerald-400 rounded-full border border-emerald-500/20">Normal</span>
+                  </div>
+
+                  <!-- DG Set 01 -->
+                  <div class="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-slate-100 dark:border-slate-800">
+                    <div class="flex items-center gap-3">
+                      <div class="h-8 w-8 rounded-lg bg-amber-500/10 text-amber-500 flex items-center justify-center font-bold">DG</div>
+                      <div>
+                        <h5 class="text-xs font-bold">500kVA DG Set Backup</h5>
+                        <p class="text-[10px] text-slate-400">Noise: 76 dBA • Oil: Low Level</p>
+                      </div>
+                    </div>
+                    <span class="px-2 py-0.5 text-[10px] font-bold bg-amber-500/20 text-amber-500 rounded-full border border-amber-500/20">Warning</span>
+                  </div>
+
+                  <!-- Power Quality -->
+                  <div class="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-slate-100 dark:border-slate-800">
+                    <div class="flex items-center gap-3">
+                      <div class="h-8 w-8 rounded-lg bg-indigo-500/10 text-indigo-400 flex items-center justify-center font-bold">PQ</div>
+                      <div>
+                        <h5 class="text-xs font-bold">Main Incomer Feed</h5>
+                        <p class="text-[10px] text-slate-400">PF: 0.98 • Harmonics (THD): 4.1%</p>
+                      </div>
+                    </div>
+                    <span class="px-2 py-0.5 text-[10px] font-bold bg-emerald-500/20 text-emerald-400 rounded-full border border-emerald-500/20">Stable</span>
+                  </div>
+                </div>
+              </div>
+              
+              <!-- Energy Conservation Meter -->
+              <div class="mt-6 pt-4 border-t border-slate-100 dark:border-slate-800">
+                <div class="flex items-center justify-between text-xs font-bold mb-1">
+                  <span class="text-slate-400">BEE ECBC Compliance Score</span>
+                  <span class="text-emerald-500">92%</span>
+                </div>
+                <div class="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-2 overflow-hidden">
+                  <div class="bg-gradient-to-r from-amber-500 to-emerald-500 h-2 rounded-full" style="width: 92%"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Bottom Grid: CAPA Deadlines & AI Predictions -->
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <!-- CAPA Deadlines -->
+            <div class="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col justify-between">
+              <div>
+                <h4 class="font-bold text-base font-outfit pb-4 border-b border-slate-100 dark:border-slate-800">Urgent Corrective Actions</h4>
+                <div class="mt-4 space-y-3">
+                  <div v-for="capa in pendingCAPAs.slice(0, 3)" :key="capa.id" class="p-3 bg-slate-50 dark:bg-slate-800/20 rounded-xl flex items-center justify-between border-l-4" :class="getCAPABorderClass(capa.severity)">
+                    <div class="min-w-0 pr-3">
+                      <h5 class="text-xs font-bold text-slate-800 dark:text-white truncate">{{ capa.title }}</h5>
+                      <p class="text-[10px] text-slate-400 mt-0.5 truncate">{{ capa.site }} • Due {{ capa.dueDate }}</p>
+                    </div>
+                    <span class="text-[10px] px-2 py-0.5 rounded font-bold capitalize" :class="getSeverityClass(capa.severity)">
+                      {{ capa.severity }}
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <button @click="currentView = 'capa'" class="mt-4 text-xs font-bold text-amber-500 hover:text-amber-600 flex items-center justify-center gap-1">
+                View all active CAPAs
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+              </button>
+            </div>
+
+            <!-- AI Engine & Predictions -->
+            <div class="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm bg-gradient-to-br from-white to-slate-50 dark:from-slate-900 dark:to-slate-950 flex flex-col justify-between">
+              <div>
+                <div class="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800">
+                  <h4 class="font-bold text-base font-outfit flex items-center gap-2">
+                    <span class="flex h-2.5 w-2.5 relative">
+                      <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-violet-400 opacity-75"></span>
+                      <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-violet-500"></span>
+                    </span>
+                    AI Compliance Assistant
+                  </h4>
+                  <span class="text-[10px] bg-violet-500/10 text-violet-400 border border-violet-500/25 px-2 py-0.5 rounded-full font-semibold">Active</span>
+                </div>
+
+                <div class="mt-4 space-y-3">
+                  <div class="p-3 bg-violet-500/5 rounded-xl border border-violet-500/10 text-xs text-slate-600 dark:text-slate-300">
+                    <span class="font-bold text-violet-400 block mb-0.5">Predictive Alert: Transformer Insulation Breakdown</span>
+                    Oil test results show escalating moisture in Transformer-02 Yard. Risk of dielectric failure in 180 hours if oil filter plant is not cycled.
+                  </div>
+                  <div class="p-3 bg-violet-500/5 rounded-xl border border-violet-500/10 text-xs text-slate-600 dark:text-slate-300">
+                    <span class="font-bold text-violet-400 block mb-0.5">Recurring Defect Risk</span>
+                    Site C reports 3 repetitive grounding resistance NCs over 12 months. Local soil clay profile indicates high drought baking. Suggest bentonite slurry grounding well.
+                  </div>
+                </div>
+              </div>
+              <p class="text-[10px] text-violet-400 text-right mt-2 font-medium">BETA Model v2.4 • Trained on IS codes</p>
+            </div>
+          </div>
+        </div>
+        
+        <!-- ==================== AUDITS LIST / AUDIT PANEL VIEW ==================== -->
+        <div v-if="currentView === 'audits'" class="space-y-6">
+          
+          <!-- AUDIT DETAILS / CHECKLIST INTERFACE (ACTIVE SESSION) -->
+          <div v-if="activeAudit" class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm overflow-hidden flex flex-col xl:flex-row min-h-[600px]">
+            
+            <!-- Side Panel: 17 Audit Modules List -->
+            <div class="w-full xl:w-80 bg-slate-50 dark:bg-slate-900/60 border-r border-slate-200 dark:border-slate-800 p-4 space-y-3 flex-shrink-0">
+              <div class="pb-4 border-b border-slate-200 dark:border-slate-800">
+                <button @click="backToAuditList" class="text-xs font-semibold text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-white flex items-center gap-1.5 mb-2.5">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
+                  Back to Audits List
+                </button>
+                <h3 class="font-bold text-lg font-outfit text-slate-800 dark:text-white truncate">{{ activeAudit.site }}</h3>
+                <p class="text-xs text-slate-400 mt-1">Auditor: {{ activeAudit.auditor }}</p>
+                <div class="flex items-center justify-between text-xs mt-3 pt-3 border-t border-slate-200 dark:border-slate-800 font-bold">
+                  <span class="text-slate-400">Total Progress</span>
+                  <span class="text-amber-500">{{ getAuditProgress(activeAudit) }}%</span>
+                </div>
+                <div class="w-full bg-slate-200 dark:bg-slate-800 rounded-full h-1.5 mt-1 overflow-hidden">
+                  <div class="bg-amber-500 h-1.5 rounded-full" :style="{ width: getAuditProgress(activeAudit) + '%' }"></div>
+                </div>
+              </div>
+              
+              <!-- Checklist Modules Scroll -->
+              <div class="space-y-1 max-h-[450px] xl:max-h-[550px] overflow-y-auto custom-scrollbar">
+                <button 
+                  v-for="(mod, key) in activeAudit.checklists" 
+                  :key="key"
+                  @click="activeModuleKey = key"
+                  class="w-full text-left p-3 rounded-xl transition-all duration-150 text-xs flex items-center justify-between border"
+                  :class="activeModuleKey === key ? 'bg-amber-500/10 border-amber-500 text-amber-500 font-bold dark:bg-amber-500/5' : 'bg-transparent border-transparent hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300'"
+                >
+                  <div class="flex items-center gap-2.5 min-w-0">
+                    <!-- Custom icons or initials -->
+                    <span class="w-6 h-6 rounded-lg bg-slate-200 dark:bg-slate-800 text-slate-500 flex items-center justify-center font-bold font-outfit">
+                      {{ mod.name[0] }}{{ mod.name[1] || '' }}
+                    </span>
+                    <span class="truncate">{{ mod.name }}</span>
+                  </div>
+                  
+                  <!-- Checkbox or Progress Badge -->
+                  <span 
+                    class="px-1.5 py-0.5 rounded text-[10px] font-bold"
+                    :class="getModuleStatusClass(mod)"
+                  >
+                    {{ getModuleSummary(mod) }}
+                  </span>
+                </button>
+              </div>
+            </div>
+            
+            <!-- Main Panel: Items & Forms -->
+            <div class="flex-1 flex flex-col bg-white dark:bg-slate-900 min-w-0">
+              
+              <!-- Module Header -->
+              <div class="p-6 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-900/20">
+                <div>
+                  <h4 class="text-xl font-bold font-outfit text-slate-800 dark:text-white">
+                    {{ activeAudit.checklists[activeModuleKey].name }}
+                  </h4>
+                  <p class="text-xs text-slate-400 mt-1">Review guidelines, set status, and document evidence</p>
+                </div>
+                
+              </div>
+              
+              <!-- Checklist Questions -->
+              <div class="flex-1 p-6 space-y-6 overflow-y-auto custom-scrollbar max-h-[550px]">
+                
+                <div 
+                  v-for="(item, idx) in activeAudit.checklists[activeModuleKey].items" 
+                  :key="item.id"
+                  class="p-6 bg-slate-50 dark:bg-slate-800/20 rounded-2xl border transition-all duration-300"
+                  :class="item.status === 'Non-Compliant' ? 'border-red-500/30 shadow-sm bg-red-500/[0.01]' : 'border-slate-100 dark:border-slate-800'"
+                >
+                  <!-- Question & Ref -->
+                  <div class="flex justify-between items-start gap-4">
+                    <div>
+                      <span class="text-[10px] bg-slate-200 dark:bg-slate-800 text-slate-500 dark:text-slate-400 px-2 py-0.5 rounded font-bold uppercase tracking-wider">
+                        {{ activeAudit.checklists[activeModuleKey].name }} • {{ idx + 1 }}
+                      </span>
+                      <h5 class="text-sm font-bold text-slate-800 dark:text-slate-100 mt-2 leading-relaxed">
+                        {{ item.question }}
+                      </h5>
+                      <p class="text-xs text-slate-400 mt-1 italic leading-relaxed">
+                        <strong>Standard Standard:</strong> {{ getStandardCode(item.standardId) }} ({{ item.standardId }})
+                      </p>
+                    </div>
+                  </div>
+                  
+                  <!-- Compliance Selector Buttons -->
+                  <div class="mt-4 flex flex-wrap gap-2">
+                    <button 
+                      @click="setChecklistStatus(item, 'Compliant')"
+                      class="px-4 py-2 text-xs font-semibold rounded-lg border transition-all"
+                      :class="item.status === 'Compliant' ? 'bg-emerald-500 border-emerald-500 text-white shadow-sm shadow-emerald-500/10' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50 dark:bg-slate-900 dark:text-slate-300 dark:border-slate-800 dark:hover:bg-slate-800'"
+                    >
+                      Compliant
+                    </button>
+                    
+                    <button 
+                      @click="setChecklistStatus(item, 'Non-Compliant')"
+                      class="px-4 py-2 text-xs font-semibold rounded-lg border transition-all"
+                      :class="item.status === 'Non-Compliant' ? 'bg-red-500 border-red-500 text-white shadow-sm shadow-red-500/10' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50 dark:bg-slate-900 dark:text-slate-300 dark:border-slate-800 dark:hover:bg-slate-800'"
+                    >
+                      Non-Compliant
+                    </button>
+
+                    <button 
+                      @click="setChecklistStatus(item, 'Partially Compliant')"
+                      class="px-4 py-2 text-xs font-semibold rounded-lg border transition-all"
+                      :class="item.status === 'Partially Compliant' ? 'bg-amber-500 border-amber-500 text-white shadow-sm shadow-amber-500/10' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50 dark:bg-slate-900 dark:text-slate-300 dark:border-slate-800 dark:hover:bg-slate-800'"
+                    >
+                      Partially Compliant
+                    </button>
+
+                    <button 
+                      @click="setChecklistStatus(item, 'Not Applicable')"
+                      class="px-4 py-2 text-xs font-semibold rounded-lg border transition-all"
+                      :class="item.status === 'Not Applicable' ? 'bg-slate-500 border-slate-500 text-white shadow-sm shadow-slate-500/10' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50 dark:bg-slate-900 dark:text-slate-300 dark:border-slate-800 dark:hover:bg-slate-800'"
+                    >
+                      N/A
+                    </button>
+                  </div>
+
+                  <!-- Dynamic Non-Conformance Card (if Non-Compliant selected) -->
+                  <div v-if="item.status === 'Non-Compliant'" class="mt-5 p-4 bg-slate-100 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-xl space-y-4">
+                    <div class="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800">
+                      <span class="text-xs font-bold text-red-500 flex items-center gap-1.5">
+                        <span class="w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
+                        Generated Non-Conformance (NC) Card
+                      </span>
+                      <span class="text-[10px] bg-red-500/10 text-red-400 px-2 py-0.5 rounded font-bold uppercase">
+                        {{ item.severity }} NC
+                      </span>
+                    </div>
+
+                    <!-- Risk Calculator -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Risk Assessment Matrix</label>
+                        
+                        <div class="flex items-center gap-2 mt-2">
+                          <div>
+                            <span class="text-[10px] text-slate-400 block mb-1">Likelihood</span>
+                            <select 
+                              v-model.number="item.riskScore.likelihood" 
+                              @change="updateNCScore(item)"
+                              class="text-xs font-semibold px-2 py-1 bg-white border border-slate-200 dark:bg-slate-900 dark:border-slate-800 rounded outline-none"
+                            >
+                              <option v-for="n in 5" :value="n">{{ n }} ({{ getLikelihoodLabel(n) }})</option>
+                            </select>
+                          </div>
+                          <span class="text-xs font-bold mt-4">×</span>
+                          <div>
+                            <span class="text-[10px] text-slate-400 block mb-1">Severity</span>
+                            <select 
+                              v-model.number="item.riskScore.severity" 
+                              @change="updateNCScore(item)"
+                              class="text-xs font-semibold px-2 py-1 bg-white border border-slate-200 dark:bg-slate-900 dark:border-slate-800 rounded outline-none"
+                            >
+                              <option v-for="n in 5" :value="n">{{ n }} ({{ getSeverityLabel(n) }})</option>
+                            </select>
+                          </div>
+                          <div class="ml-2">
+                            <span class="text-[10px] text-slate-400 block mb-1">Risk Score</span>
+                            <span 
+                              class="inline-block px-2.5 py-1 text-xs font-bold rounded"
+                              :class="getNCScoreClass(item.riskScore.score)"
+                            >
+                              {{ item.riskScore.score }} ({{ getNCScoreCategory(item.riskScore.score) }})
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div class="space-y-1">
+                        <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Hazard Class</span>
+                        <div class="flex flex-wrap gap-1.5 mt-1.5">
+                          <span 
+                            class="px-2 py-0.5 text-[9px] rounded font-bold uppercase cursor-pointer"
+                            :class="item.riskType === 'Electrical Shock' ? 'bg-red-500/20 text-red-400 border border-red-500/30' : 'bg-slate-100 text-slate-500 dark:bg-slate-800'"
+                            @click="item.riskType = 'Electrical Shock'"
+                          >Shock</span>
+                          <span 
+                            class="px-2 py-0.5 text-[9px] rounded font-bold uppercase cursor-pointer"
+                            :class="item.riskType === 'Arc Flash' ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30' : 'bg-slate-100 text-slate-500 dark:bg-slate-800'"
+                            @click="item.riskType = 'Arc Flash'"
+                          >Arc Flash</span>
+                          <span 
+                            class="px-2 py-0.5 text-[9px] rounded font-bold uppercase cursor-pointer"
+                            :class="item.riskType === 'Fire Risk' ? 'bg-red-500/20 text-red-400 border border-red-500/30' : 'bg-slate-100 text-slate-500 dark:bg-slate-800'"
+                            @click="item.riskType = 'Fire Risk'"
+                          >Fire</span>
+                          <span 
+                            class="px-2 py-0.5 text-[9px] rounded font-bold uppercase cursor-pointer"
+                            :class="item.riskType === 'Thermal Overload' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' : 'bg-slate-100 text-slate-500 dark:bg-slate-800'"
+                            @click="item.riskType = 'Thermal Overload'"
+                          >Overload</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- Auto Gen Output -->
+                    <div class="text-xs space-y-2.5 bg-white dark:bg-slate-950 p-4 rounded-xl border border-slate-200/60 dark:border-slate-800">
+                      <div>
+                        <span class="text-slate-400 block font-semibold">NC Title & Observation Detail:</span>
+                        <p class="font-bold text-slate-800 dark:text-white mt-0.5">{{ getNCAutogenText(item).title }}</p>
+                        <p class="text-slate-500 dark:text-slate-400 mt-1 italic leading-relaxed">{{ getNCAutogenText(item).description }}</p>
+                      </div>
+                      
+                      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2.5 border-t border-slate-100 dark:border-slate-800/80">
+                        <div>
+                          <span class="text-slate-400 block font-semibold">Legal Implications:</span>
+                          <p class="text-slate-500 dark:text-slate-400 text-[11px] leading-relaxed">{{ getNCAutogenText(item).legal }}</p>
+                        </div>
+                        <div>
+                          <span class="text-slate-400 block font-semibold">Recommended Corrective Action (CAPA):</span>
+                          <p class="text-slate-500 dark:text-slate-400 text-[11px] leading-relaxed">{{ getNCAutogenText(item).capa }}</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Observation Notes, Camera, and Voice Elements -->
+                  <div class="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    <!-- Observations Text Area -->
+                    <div>
+                      <label class="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Observation Notes</label>
+                      <div class="relative mt-1.5">
+                        <textarea 
+                          v-model="item.observation" 
+                          placeholder="Type or dictate inspector findings..." 
+                          rows="2"
+                          class="w-full text-xs p-3 border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 rounded-xl outline-none focus:border-amber-500"
+                        ></textarea>
+                        <!-- Voice trigger button -->
+                        <button 
+                          @click="triggerVoiceToText(item)" 
+                          class="absolute bottom-3 right-3 p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-500 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-300 transition-all flex items-center gap-1 shadow-sm"
+                          :class="voiceLoadingItem === item.id ? 'bg-red-500/10 text-red-500 animate-pulse' : ''"
+                        >
+                          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" /></svg>
+                          <span v-if="voiceLoadingItem === item.id" class="text-[9px] font-bold">Listening...</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    <!-- Photo Upload and Annotation -->
+                    <div>
+                      <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Visual Evidence</span>
+                      
+                      <div class="mt-1.5 flex items-center gap-4">
+                        <!-- Upload Slot -->
+                        <div v-if="!item.evidenceUrl" class="w-full">
+                          <input 
+                            type="file" 
+                            accept="image/*"
+                            :id="'file-' + item.id" 
+                            class="hidden" 
+                            @change="handlePhotoUpload($event, item)"
+                          >
+                          <label 
+                            :for="'file-' + item.id"
+                            class="w-full h-16 rounded-xl border border-dashed border-slate-300 hover:border-amber-500 dark:border-slate-700 dark:hover:border-amber-500 flex flex-col items-center justify-center cursor-pointer transition-all duration-200 bg-slate-50/50 dark:bg-slate-900/30 hover:bg-amber-500/[0.02]"
+                          >
+                            <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                            <span class="text-[10px] font-bold text-slate-500 dark:text-slate-400 mt-1">Capture / Upload Defect Photo</span>
+                          </label>
+                        </div>
+                        
+                        <!-- Uploaded Preview -->
+                        <div v-else class="flex items-center gap-3 w-full p-2 bg-slate-100 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 rounded-xl">
+                          <div class="relative w-12 h-12 rounded-lg overflow-hidden border border-slate-300 dark:border-slate-700 flex-shrink-0">
+                            <img :src="item.evidenceUrl" class="w-full h-full object-cover">
+                          </div>
+                          
+                          <div class="flex-1 min-w-0">
+                            <span class="text-[10px] text-slate-400 block truncate">Photo Captured</span>
+                            <div class="flex gap-2 mt-1">
+                              <button 
+                                @click="openImageAnnotator(item)"
+                                class="text-[10px] font-bold text-amber-500 hover:text-amber-600 hover:underline flex items-center gap-0.5"
+                              >
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                                Annotate Defect
+                              </button>
+                              <button 
+                                @click="removePhoto(item)"
+                                class="text-[10px] font-bold text-red-500 hover:text-red-600 hover:underline"
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <!-- GPS and Timestamp Tagging -->
+                  <div class="mt-4 flex items-center justify-between text-[10px] text-slate-400 pt-3 border-t border-slate-100 dark:border-slate-800/80">
+                    <div class="flex items-center gap-3">
+                      <span class="flex items-center gap-1">
+                        <svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                        GPS: <span class="font-semibold text-slate-500 dark:text-slate-300">{{ item.gps || 'Un-tagged' }}</span>
+                      </span>
+                      <button @click="tagGPS(item)" class="text-amber-500 hover:underline font-bold">Auto-Tag GPS</button>
+                    </div>
+                    <span>Timestamp: {{ item.timestamp || 'Not recorded' }}</span>
+                  </div>
+
+                </div>
+                
+              </div>
+              
+              <!-- Sign-off Sheet Button (Bottom bar inside audit) -->
+              <div class="p-4 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50 flex justify-between items-center">
+                <span class="text-xs text-slate-400">Audit session ID: #{{ activeAudit.id }}</span>
+                <button 
+                  @click="completeAuditDirectly" 
+                  class="px-5 py-2.5 bg-amber-500 text-slate-950 font-bold rounded-xl hover:bg-amber-600 transition shadow-md shadow-amber-500/10 text-xs flex items-center gap-1.5"
+                >
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" /></svg>
+                  Complete Audit Session
+                </button>
+              </div>
+
+            </div>
+          </div>
+          
+          <!-- AUDIT SESSIONS LIST (DEFAULT STATE) -->
+          <div v-else class="space-y-6">
+            <div class="flex justify-between items-center bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
+              <div>
+                <h4 class="font-bold text-lg font-outfit">Active Inspection Schedules</h4>
+                <p class="text-xs text-slate-400 mt-1">Select an audit below to continue inspection or create a new session</p>
+              </div>
+              <button 
+                @click="showNewAuditModal = true" 
+                class="px-4 py-2.5 bg-amber-500 text-slate-950 font-bold text-xs rounded-xl hover:bg-amber-600 transition shadow-md shadow-amber-500/10 flex items-center gap-1.5"
+              >
+                <svg class="w-4.5 h-4.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg>
+                New Audit Session
+              </button>
+            </div>
+            
+            <!-- Audits Cards Grid -->
+            <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+              <div 
+                v-for="audit in audits" 
+                :key="audit.id"
+                class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm flex flex-col justify-between hover:border-amber-500/50 transition-all duration-300"
+              >
+                <div>
+                  <div class="flex items-center justify-between">
+                    <span 
+                      class="px-2.5 py-0.5 text-[10px] font-bold rounded-full border"
+                      :class="audit.status === 'Completed' ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/35' : 'bg-amber-500/20 text-amber-500 border-amber-500/35'"
+                    >
+                      {{ audit.status }}
+                    </span>
+                    <span class="text-[10px] text-slate-400 font-semibold font-outfit">Date: {{ audit.date }}</span>
+                  </div>
+
+                  <h5 class="text-base font-bold font-outfit text-slate-800 dark:text-white mt-4">{{ audit.site }}</h5>
+                  <p class="text-xs text-slate-400 mt-1 capitalize">Auditor: {{ audit.auditor }}</p>
+                  
+                  <div class="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800/80 space-y-2">
+                    <div class="flex items-center justify-between text-xs font-semibold">
+                      <span class="text-slate-400">Compliance score</span>
+                      <span :class="getComplianceColor(audit.complianceScore)">{{ audit.complianceScore }}%</span>
+                    </div>
+                    <div class="flex items-center justify-between text-xs font-semibold">
+                      <span class="text-slate-400">Open NCs</span>
+                      <span class="text-red-500 font-bold">{{ getOpenNCCountForAudit(audit) }}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="mt-6 flex gap-2">
+                  <button 
+                    @click="resumeAudit(audit)"
+                    class="flex-1 py-2 text-center text-xs font-bold rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-300 transition"
+                  >
+                    {{ audit.status === 'Completed' ? 'View Details' : 'Resume Audit' }}
+                  </button>
+                  
+                  <!-- Quick actions -->
+                  <button 
+                    @click="generateAuditReports(audit)"
+                    class="px-3 py-2 rounded-lg bg-amber-500 text-slate-950 font-bold hover:bg-amber-600 transition text-xs"
+                  >
+                    Report
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+        
+        <!-- ==================== CAPA TRACKER VIEW ==================== -->
+        <div v-if="currentView === 'capa'" class="space-y-6">
+          <!-- Filters bar -->
+          <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 rounded-2xl shadow-sm space-y-4">
+            <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+              <div>
+                <h4 class="font-bold text-lg font-outfit">Active CAPA & NC Registry</h4>
+                <p class="text-xs text-slate-400 mt-1">Manage corrective & preventive actions, verify resolutions, and close violations</p>
+              </div>
+              
+              <!-- Quick Export excel -->
+              <button 
+                @click="exportCAPAToExcel"
+                class="px-3.5 py-2 text-xs font-bold rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white flex items-center gap-1.5 shadow-sm"
+              >
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                Export CAPA Tracker (Excel)
+              </button>
+            </div>
+            
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-4 border-t border-slate-100 dark:border-slate-800/80">
+              <div>
+                <label class="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1.5">Filter by Status</label>
+                <select v-model="capaFilters.status" class="w-full text-xs font-semibold px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none">
+                  <option value="All">All Statuses</option>
+                  <option value="Open">Open</option>
+                  <option value="In Progress">In Progress</option>
+                  <option value="Pending Verification">Pending Verification</option>
+                  <option value="Closed">Closed</option>
+                </select>
+              </div>
+
+              <div>
+                <label class="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1.5">Filter by Severity</label>
+                <select v-model="capaFilters.severity" class="w-full text-xs font-semibold px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none">
+                  <option value="All">All Severities</option>
+                  <option value="Critical">Critical</option>
+                  <option value="Major">Major</option>
+                  <option value="Minor">Minor</option>
+                </select>
+              </div>
+
+              <div>
+                <label class="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1.5">Filter by Department</label>
+                <select v-model="capaFilters.department" class="w-full text-xs font-semibold px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none">
+                  <option value="All">All Departments</option>
+                  <option value="Maintenance">Maintenance</option>
+                  <option value="EHS Team">EHS Team</option>
+                  <option value="Operations">Operations</option>
+                  <option value="Procurement">Procurement</option>
+                </select>
+              </div>
+
+              <div>
+                <label class="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1.5">Search by Site / Title</label>
+                <input 
+                  type="text" 
+                  v-model="capaFilters.search" 
+                  placeholder="Search key..."
+                  class="w-full text-xs font-semibold px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:border-amber-500"
+                >
+              </div>
+            </div>
+          </div>
+          
+          <!-- CAPA List -->
+          <div class="space-y-4">
+            <div v-if="filteredCAPAs.length === 0" class="p-12 text-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl">
+              <p class="text-sm text-slate-400 font-semibold">No Non-Conformances match your filters</p>
+            </div>
+            
+            <div 
+              v-for="capa in filteredCAPAs" 
+              :key="capa.id"
+              class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm flex flex-col xl:flex-row justify-between gap-6 hover:border-slate-300 dark:hover:border-slate-700 transition"
+            >
+              <!-- Info block -->
+              <div class="flex-1 space-y-3">
+                <div class="flex items-center gap-3 flex-wrap">
+                  <span class="text-[10px] bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded font-bold uppercase tracking-wider text-slate-500">{{ capa.id }}</span>
+                  <span class="text-xs font-bold text-slate-400 font-outfit">{{ capa.site }}</span>
+                  <span class="text-[10px] px-2 py-0.5 rounded font-bold capitalize" :class="getSeverityClass(capa.severity)">{{ capa.severity }} NC</span>
+                  <span class="text-[10px] bg-indigo-500/10 text-indigo-400 px-2 py-0.5 rounded font-bold">{{ capa.department }}</span>
+                </div>
+                
+                <h5 class="text-base font-bold text-slate-800 dark:text-white">{{ capa.title }}</h5>
+                <p class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">{{ capa.description }}</p>
+                
+                <!-- References -->
+                <div class="p-3 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-slate-100 dark:border-slate-800/60 text-xs space-y-1.5">
+                  <p><strong>Standard Code:</strong> {{ capa.standard }} • {{ capa.clause }}</p>
+                  <p class="text-[11px] text-slate-400 italic"><strong>Recommended Action:</strong> {{ capa.remedy }}</p>
+                </div>
+                
+                <!-- Evidence Image -->
+                <div v-if="capa.photo" class="flex items-center gap-2.5">
+                  <div class="w-16 h-16 rounded-lg overflow-hidden border border-slate-300 dark:border-slate-700 relative cursor-pointer" @click="viewCapaPhoto(capa.photo)">
+                    <img :src="capa.photo" class="w-full h-full object-cover">
+                  </div>
+                  <span class="text-[10px] text-slate-400 italic">Photographic Evidence attached</span>
+                </div>
+              </div>
+
+              <!-- Action block (status edits, assignee) -->
+              <div class="w-full xl:w-72 flex-shrink-0 flex flex-col justify-between border-t xl:border-t-0 xl:border-l border-slate-100 dark:border-slate-800/80 pt-4 xl:pt-0 xl:pl-6 space-y-4">
+                <div class="space-y-3.5">
+                  <div>
+                    <label class="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">Assignee Owner</label>
+                    <input 
+                      type="text" 
+                      v-model="capa.assignee" 
+                      @change="saveCAPAState"
+                      class="w-full text-xs font-semibold px-2.5 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg outline-none"
+                    >
+                  </div>
+
+                  <div>
+                    <label class="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">Resolution Deadline</label>
+                    <input 
+                      type="date" 
+                      v-model="capa.dueDate" 
+                      @change="saveCAPAState"
+                      class="w-full text-xs font-semibold px-2.5 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg outline-none"
+                    >
+                  </div>
+                  
+                  <div>
+                    <label class="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">Workflow Status</label>
+                    <select 
+                      v-model="capa.status" 
+                      @change="handleStatusChange(capa)"
+                      class="w-full text-xs font-semibold px-2.5 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg outline-none"
+                      :class="getStatusColor(capa.status)"
+                    >
+                      <option value="Open">Open</option>
+                      <option value="In Progress">In Progress</option>
+                      <option value="Pending Verification">Pending Verification</option>
+                      <option value="Closed">Closed</option>
+                    </select>
+                  </div>
+                </div>
+
+                <!-- Verification details if pending/closed -->
+                <div v-if="capa.status === 'Pending Verification' || capa.status === 'Closed'" class="p-2.5 bg-slate-50 dark:bg-slate-800/40 rounded-lg border border-slate-100 dark:border-slate-800 text-[10px] space-y-1">
+                  <span class="font-bold text-slate-400 uppercase tracking-wider block">Verification remarks</span>
+                  <input 
+                    type="text" 
+                    v-model="capa.verificationRemarks" 
+                    placeholder="E.g., verified insulation mats laid..."
+                    @change="saveCAPAState"
+                    class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-1.5 rounded outline-none"
+                  >
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </div>
+        
+        <!-- ==================== REPORTS & EXPORT GENERATOR VIEW ==================== -->
+        <div v-if="currentView === 'reports'" class="space-y-6">
+          <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 rounded-2xl shadow-sm">
+            <h4 class="font-bold text-lg font-outfit">Report Compiler & Exports</h4>
+            <p class="text-xs text-slate-400 mt-1">Select an audit to generate a comprehensive, auditor-stamped PDF compliance package or a multi-tab Excel spreadsheet.</p>
+            
+            <div class="mt-6 flex flex-col sm:flex-row items-end gap-4 max-w-xl">
+              <div class="flex-1">
+                <label class="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1.5">Select Audit Session</label>
+                <select v-model="reportAuditId" class="w-full text-xs font-semibold px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none">
+                  <option v-for="aud in audits" :key="aud.id" :value="aud.id">{{ aud.site }} ({{ aud.date }})</option>
+                </select>
+              </div>
+              <button 
+                @click="loadReportData" 
+                class="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs rounded-xl transition shadow-md shadow-amber-500/10"
+              >
+                Compile Report
+              </button>
+            </div>
+          </div>
+
+          <!-- Report Compilation Output Area -->
+          <div v-if="compiledReport" class="space-y-6">
+            
+            <!-- Download toolbar -->
+            <div class="no-print flex flex-wrap gap-3 p-4 bg-slate-900 text-white rounded-2xl shadow-lg justify-between items-center">
+              <div class="text-xs">
+                <span class="font-bold text-amber-500">Report Ready</span> • Compilation stamp complete. Verified signatures embedded.
+              </div>
+              <div class="flex items-center gap-3">
+                <button 
+                  @click="exportReportToExcel"
+                  class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 transition"
+                >
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                  Download Excel Bundle
+                </button>
+                <button 
+                  @click="triggerPDFPrint"
+                  class="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs rounded-xl flex items-center gap-1.5 transition"
+                >
+                  <svg class="w-4.5 h-4.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
+                  Print / Export PDF Report
+                </button>
+              </div>
+            </div>
+
+            <!-- high-fidelity Report Layout -->
+            <div id="pdf-report-layout" class="print-card bg-white text-slate-900 border border-slate-200 rounded-3xl p-8 shadow-xl max-w-4xl mx-auto space-y-8 font-sans">
+              
+              <!-- Cover Header -->
+              <div class="border-b border-slate-200 pb-8 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6">
+                <div>
+                  <h1 class="text-4xl font-extrabold font-outfit text-slate-950 tracking-tight">ELECTRICAL SAFETY AUDIT</h1>
+                  <h2 class="text-lg font-bold text-amber-600 font-outfit mt-1 tracking-wide uppercase">Compliance & Non-Conformance Report</h2>
+                  <p class="text-xs text-slate-400 mt-2">Audit Session: #{{ compiledReport.id }} • Certified in accordance with Indian Electricity Rules</p>
+                </div>
+                <div class="h-16 w-16 rounded-2xl bg-amber-500 flex items-center justify-center shadow-lg shadow-amber-500/25">
+                  <svg class="w-10 h-10 text-slate-950" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                  </svg>
+                </div>
+              </div>
+
+              <!-- General Info grid -->
+              <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 p-5 bg-slate-50 border border-slate-200 rounded-2xl text-xs leading-relaxed">
+                <div>
+                  <span class="text-slate-400 block font-semibold">Site Name:</span>
+                  <p class="font-bold text-slate-800 mt-0.5">{{ compiledReport.site }}</p>
+                </div>
+                <div>
+                  <span class="text-slate-400 block font-semibold">Lead Auditor:</span>
+                  <p class="font-bold text-slate-800 mt-0.5">{{ compiledReport.auditor }}</p>
+                </div>
+                <div>
+                  <span class="text-slate-400 block font-semibold">Audit Date:</span>
+                  <p class="font-bold text-slate-800 mt-0.5">{{ compiledReport.date }}</p>
+                </div>
+                <div>
+                  <span class="text-slate-400 block font-semibold">Representative:</span>
+                  <p class="font-bold text-slate-800 mt-0.5">{{ compiledReport.repName || 'Not recorded' }}</p>
+                </div>
+              </div>
+
+              <!-- Executive summary KPI layout -->
+              <div class="space-y-4">
+                <h3 class="text-lg font-bold font-outfit text-slate-950 pb-2 border-b">1. Executive Compliance Scorecard</h3>
+                
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                  <div class="p-6 bg-slate-50 border border-slate-100 rounded-2xl text-center">
+                    <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Compliance Score</span>
+                    <h3 class="text-4xl font-extrabold font-outfit text-emerald-600 mt-2">{{ compiledReport.complianceScore }}%</h3>
+                    <p class="text-[10px] text-slate-500 mt-2">Percentage of checklist points passing EHS requirements</p>
+                  </div>
+                  
+                  <div class="p-6 bg-slate-50 border border-slate-100 rounded-2xl text-center">
+                    <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Critical NCs</span>
+                    <h3 class="text-4xl font-extrabold font-outfit text-red-600 mt-2">{{ getReportNCCountBySeverity(compiledReport, 'Critical') }}</h3>
+                    <p class="text-[10px] text-slate-500 mt-2">Lethal/Immediate hazards requiring resolution within 7 days</p>
+                  </div>
+
+                  <div class="p-6 bg-slate-50 border border-slate-100 rounded-2xl text-center">
+                    <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Major / Minor NCs</span>
+                    <h3 class="text-4xl font-extrabold font-outfit text-amber-600 mt-2">
+                      {{ getReportNCCountBySeverity(compiledReport, 'Major') + getReportNCCountBySeverity(compiledReport, 'Minor') }}
+                    </h3>
+                    <p class="text-[10px] text-slate-500 mt-2">Violations requiring departmental action</p>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Clause compliance list -->
+              <div class="space-y-4">
+                <h3 class="text-lg font-bold font-outfit text-slate-950 pb-2 border-b">2. Module Compliance Breakdowns</h3>
+                
+                <div class="overflow-x-auto">
+                  <table class="w-full text-left text-xs border-collapse">
+                    <thead>
+                      <tr class="bg-slate-100 font-bold text-slate-600">
+                        <th class="p-3">Audit Area (Module)</th>
+                        <th class="p-3 text-center">Compliant</th>
+                        <th class="p-3 text-center">Non-Compliant</th>
+                        <th class="p-3 text-center">Partially</th>
+                        <th class="p-3 text-center">N/A</th>
+                        <th class="p-3 text-right">Compliance Rate</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr v-for="(mod, key) in compiledReport.checklists" :key="key" class="border-b border-slate-100 text-slate-700">
+                        <td class="p-3 font-semibold">{{ mod.name }}</td>
+                        <td class="p-3 text-center">{{ getReportStatusCount(mod, 'Compliant') }}</td>
+                        <td class="p-3 text-center text-red-600 font-bold">{{ getReportStatusCount(mod, 'Non-Compliant') }}</td>
+                        <td class="p-3 text-center text-amber-600">{{ getReportStatusCount(mod, 'Partially Compliant') }}</td>
+                        <td class="p-3 text-center text-slate-400">{{ getReportStatusCount(mod, 'Not Applicable') }}</td>
+                        <td class="p-3 text-right font-bold" :class="getComplianceColor(getReportModuleScore(mod))">
+                          {{ getReportModuleScore(mod) }}%
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <!-- Clause-Wise Non-Conformances -->
+              <div class="page-break space-y-4">
+                <h3 class="text-lg font-bold font-outfit text-slate-950 pb-2 border-b">3. Technical Non-Conformance Registry (NCR)</h3>
+                
+                <div v-if="getReportNCList(compiledReport).length === 0" class="p-4 text-xs italic text-slate-400">
+                  No Non-Conformances recorded during this audit session.
+                </div>
+                <div v-else class="space-y-6">
+                  <div 
+                    v-for="(nc, ncIdx) in getReportNCList(compiledReport)" 
+                    :key="ncIdx"
+                    class="p-5 border border-slate-200 rounded-2xl space-y-3.5 leading-relaxed text-xs"
+                  >
+                    <div class="flex justify-between items-center pb-2 border-b">
+                      <span class="font-bold text-slate-900">NCR Item #{{ ncIdx + 1 }}: {{ nc.checklistName }}</span>
+                      <span class="font-bold uppercase px-2 py-0.5 rounded" :class="getSeverityClass(nc.severity)">
+                        {{ nc.severity }}
+                      </span>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <span class="text-slate-400 block font-semibold">Violation Description:</span>
+                        <p class="text-slate-800 font-bold">{{ nc.autogen.title }}</p>
+                        <p class="text-slate-600 mt-1 italic">{{ nc.autogen.description }}</p>
+                      </div>
+                      <div>
+                        <span class="text-slate-400 block font-semibold">Standard & Clause Reference:</span>
+                        <p class="text-slate-700 mt-0.5"><strong>Code:</strong> {{ nc.autogen.code }}</p>
+                        <p class="text-slate-700"><strong>Clause:</strong> {{ nc.autogen.clause }}</p>
+                        <p class="text-slate-500 mt-1 text-[11px]"><strong>Implication:</strong> {{ nc.autogen.legal }}</p>
+                      </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-3 border-t">
+                      <div>
+                        <span class="text-slate-400 block font-semibold">Auditor Observations:</span>
+                        <p class="text-slate-700 mt-0.5">{{ nc.observation || 'No additional notes recorded.' }}</p>
+                        <p class="text-slate-400 text-[10px] mt-1">GPS: {{ nc.gps || 'Not recorded' }} • Time: {{ nc.timestamp || 'Not recorded' }}</p>
+                      </div>
+                      <div>
+                        <span class="text-slate-400 block font-semibold">Recommended Corrective Action (CAPA):</span>
+                        <p class="text-slate-700 mt-0.5">{{ nc.autogen.capa }}</p>
+                      </div>
+                    </div>
+                    
+                    <!-- Evidence Photo -->
+                    <div v-if="nc.evidenceUrl" class="mt-2 pt-3 border-t">
+                      <span class="text-slate-400 block font-semibold mb-2">Visual Evidence Reference:</span>
+                      <div class="w-48 h-32 rounded-xl overflow-hidden border border-slate-200 relative">
+                        <img :src="nc.evidenceUrl" class="w-full h-full object-cover">
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Sign-off Sheet & Certificate -->
+              <div class="page-break space-y-6 pt-6">
+                <h3 class="text-lg font-bold font-outfit text-slate-950 pb-2 border-b">4. Verification & Digital Signatures</h3>
+                
+                <p class="text-xs text-slate-600 leading-relaxed">
+                  This report certifies that a physical inspection of the electrical structures listed was conducted on the date noted above. 
+                  The non-conformances detailed here require corrective action planning (CAPA) by the responsible EHS and maintenance groups.
+                </p>
+                
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-8 pt-8">
+                  <!-- Auditor Info -->
+                  <div class="p-5 border border-slate-100 rounded-2xl bg-slate-50/50 text-center space-y-2">
+                    <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Lead Auditor</span>
+                    <span class="text-base font-bold text-slate-800 block">{{ compiledReport.auditor }}</span>
+                    <p class="text-[10px] text-slate-500">Certified Electrical Auditor</p>
+                    <span class="text-[10px] text-slate-400 block mt-2 border-t pt-2 border-slate-200/50">Verification Token: SHAKTI-{{ compiledReport.id.slice(0,6) }}-AUD</span>
+                  </div>
+
+                  <!-- Representative Info -->
+                  <div class="p-5 border border-slate-100 rounded-2xl bg-slate-50/50 text-center space-y-2">
+                    <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Site Representative</span>
+                    <span class="text-base font-bold text-slate-800 block">{{ compiledReport.repName || 'N/A' }}</span>
+                    <p class="text-[10px] text-slate-500">Designation: {{ compiledReport.repDesignation || 'N/A' }}</p>
+                    <span class="text-[10px] text-slate-400 block mt-2 border-t pt-2 border-slate-200/50">Status: EHS Certified sign-off</span>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </div>
+
+        <!-- ==================== STANDARDS DATABASE VIEW ==================== -->
+        <div v-if="currentView === 'standards'" class="space-y-6">
+          <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 rounded-2xl shadow-sm">
+            <h4 class="font-bold text-lg font-outfit">Standards & Regulatory Reference Database</h4>
+            <p class="text-xs text-slate-400 mt-1">Preloaded compliance code sets matching Indian Standards (IS), Bureau of Indian Standards (BIS), National Building Code (NBC), IEEE, and BEE guidelines.</p>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div 
+              v-for="(std, key) in standards" 
+              :key="key"
+              class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 rounded-2xl shadow-sm flex flex-col justify-between hover:border-slate-300 dark:hover:border-slate-700 transition"
+            >
+              <div>
+                <div class="flex justify-between items-start gap-4">
+                  <div>
+                    <span class="text-[10px] bg-amber-500/10 text-amber-500 border border-amber-500/25 px-2.5 py-0.5 rounded font-bold uppercase tracking-wider font-outfit">
+                      {{ std.code }}
+                    </span>
+                    <h5 class="text-base font-bold text-slate-800 dark:text-white mt-2">{{ std.title }}</h5>
+                  </div>
+                  <span class="text-[10px] px-2 py-0.5 rounded font-bold uppercase" :class="getSeverityClass(std.defaultSeverity)">
+                    {{ std.defaultSeverity }} Severity
+                  </span>
+                </div>
+                
+                <p class="text-xs text-slate-400 mt-3 leading-relaxed"><strong>Clauses:</strong> {{ std.clause }}</p>
+                <p class="text-xs text-slate-500 dark:text-slate-400 mt-1.5 leading-relaxed">{{ std.description }}</p>
+                
+                <div class="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800/80 space-y-2.5 text-xs leading-relaxed">
+                  <p class="text-red-500 bg-red-500/5 p-2.5 rounded-xl border border-red-500/10">
+                    <strong>EHS Risk Impact:</strong> {{ std.riskImpact }}
+                  </p>
+                  <p class="text-slate-500 dark:text-slate-400">
+                    <strong>Legal Implications:</strong> {{ std.legalImplication }}
+                  </p>
+                  <p class="text-emerald-500 bg-emerald-500/5 p-2.5 rounded-xl border border-emerald-500/10">
+                    <strong>Recommended CAPA Remedy:</strong> {{ std.defaultCAPA }}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ==================== SETTINGS VIEW ==================== -->
+        <div v-if="currentView === 'settings'" class="max-w-2xl mx-auto bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm p-6 space-y-6">
+          <h4 class="font-bold text-lg font-outfit pb-4 border-b">User Profile & App Settings</h4>
+          
+          <div class="space-y-4 text-xs">
+            <!-- User Profile Card -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label class="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">Auditor Full Name</label>
+                <input 
+                  type="text" 
+                  v-model="user.name"
+                  class="w-full text-xs font-semibold px-3 py-2 bg-slate-50 border border-slate-200 dark:bg-slate-800 dark:border-slate-700 rounded-xl outline-none focus:border-amber-500"
+                >
+              </div>
+              
+              <div>
+                <label class="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">Assigned Role</label>
+                <select 
+                  v-model="user.role"
+                  class="w-full text-xs font-semibold px-3 py-2 bg-slate-50 border border-slate-200 dark:bg-slate-800 dark:border-slate-700 rounded-xl outline-none focus:border-amber-500"
+                >
+                  <option value="auditor">Auditor (Field EHS)</option>
+                  <option value="admin">Administrator (System Manager)</option>
+                  <option value="reviewer">Reviewer (Expert Council)</option>
+                  <option value="management">Management Executive</option>
+                  <option value="contractor">Safety Contractor</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Sync Frequency -->
+            <div>
+              <label class="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">Cloud Sync Settings</label>
+              <div class="p-4 bg-slate-50 dark:bg-slate-850 rounded-xl border space-y-2">
+                <div class="flex items-center justify-between">
+                  <span>Auto-Sync in background when connection is detected</span>
+                  <input type="checkbox" v-model="settings.autoSync" class="w-4 h-4 accent-amber-500 cursor-pointer">
+                </div>
+                <div class="flex items-center justify-between pt-2 border-t">
+                  <span>Sync Interval (Minutes)</span>
+                  <input type="number" v-model.number="settings.syncInterval" class="w-16 px-2 py-1 bg-white border border-slate-200 rounded text-center outline-none">
+                </div>
+              </div>
+            </div>
+            
+            <!-- Site Registry Management -->
+            <div>
+              <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1.5">Registered Sites Database</span>
+              <div class="space-y-2 max-h-40 overflow-y-auto custom-scrollbar">
+                <div v-for="site in settings.sites" :key="site" class="flex items-center justify-between p-2.5 bg-slate-50 dark:bg-slate-800 rounded-xl border">
+                  <span>{{ site }}</span>
+                  <button @click="removeSite(site)" class="text-red-500 hover:text-red-600 hover:underline">Remove</button>
+                </div>
+              </div>
+              
+              <div class="flex gap-2 mt-2">
+                <input 
+                  type="text" 
+                  v-model="newSiteName" 
+                  placeholder="E.g. Gujarat Chemicals Plant..."
+                  class="flex-1 text-xs px-3 py-2 bg-slate-50 border border-slate-200 dark:bg-slate-800 dark:border-slate-700 rounded-xl outline-none focus:border-amber-500"
+                >
+                <button 
+                  @click="addSite"
+                  class="px-4 py-2 bg-amber-500 text-slate-950 font-bold rounded-xl text-xs hover:bg-amber-600 transition"
+                >
+                  Add Site
+                </button>
+              </div>
+            </div>
+            
+            <!-- Reset Button -->
+            <div class="pt-6 border-t flex justify-end">
+              <button 
+                @click="resetAppData"
+                class="px-4 py-2 bg-red-500 hover:bg-red-600 text-white font-bold rounded-xl text-xs transition shadow-md shadow-red-500/10"
+              >
+                Reset Database to Factory Defaults
+              </button>
+            </div>
+
+          </div>
+        </div>
+
+      </div>
+    </main>
+
+  <!-- ==================== DIALOG MODALS ==================== -->
+  
+  <!-- MODAL: START NEW AUDIT -->
+  <div v-if="showNewAuditModal" class="no-print fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-sm p-4">
+    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl w-full max-w-lg p-6 space-y-5 shadow-2xl">
+      <div class="flex justify-between items-center pb-3 border-b">
+        <h4 class="font-bold text-lg font-outfit text-slate-900 dark:text-white">Initialize New Audit Session</h4>
+        <button @click="showNewAuditModal = false" class="p-1 rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800">&times;</button>
+      </div>
+      
+      <div class="space-y-4 text-xs">
+        <div>
+          <label class="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">Select Inspection Site</label>
+          <select v-model="newAudit.site" class="w-full text-xs font-semibold px-3 py-2 bg-slate-50 border border-slate-200 dark:bg-slate-800 dark:border-slate-700 rounded-xl outline-none focus:border-amber-500">
+            <option v-for="site in settings.sites" :key="site" :value="site">{{ site }}</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">Auditor Lead Name</label>
+          <input 
+            type="text" 
+            v-model="newAudit.auditor"
+            class="w-full text-xs font-semibold px-3 py-2 bg-slate-50 border border-slate-200 dark:bg-slate-800 dark:border-slate-700 rounded-xl outline-none focus:border-amber-500"
+          >
+        </div>
+
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">Audit Date</label>
+            <input 
+              type="date" 
+              v-model="newAudit.date"
+              class="w-full text-xs font-semibold px-3 py-2 bg-slate-50 border border-slate-200 dark:bg-slate-800 dark:border-slate-700 rounded-xl outline-none focus:border-amber-500"
+            >
+          </div>
+          <div>
+            <label class="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">Audit Type</label>
+            <select v-model="newAudit.type" class="w-full text-xs font-semibold px-3 py-2 bg-slate-50 border border-slate-200 dark:bg-slate-800 dark:border-slate-700 rounded-xl outline-none focus:border-amber-500">
+              <option value="Comprehensive">Comprehensive Safety</option>
+              <option value="Surprise">Surprise Inspection</option>
+              <option value="BEE Energy">BEE Energy Compliance</option>
+              <option value="Follow-up">CAPA Verification</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="pt-4 flex justify-end gap-3 border-t">
+          <button 
+            @click="showNewAuditModal = false"
+            class="px-4 py-2 rounded-xl text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-bold"
+          >
+            Cancel
+          </button>
+          <button 
+            @click="createNewAuditSession"
+            class="px-5 py-2 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold rounded-xl text-xs transition shadow-md shadow-amber-500/10"
+          >
+            Generate Checklist Package
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: IMAGE ANNOTATOR CANVAS -->
+  <div v-if="showAnnotatorModal" class="no-print fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-sm p-4">
+    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl w-full max-w-2xl p-6 space-y-4 shadow-2xl">
+      <div class="flex justify-between items-center pb-2 border-b">
+        <div>
+          <h4 class="font-bold text-base font-outfit text-slate-900 dark:text-white">Draw Defect Highlights (Photo Annotator)</h4>
+          <p class="text-[10px] text-slate-400 mt-0.5">Left-click and drag across image to draw red circles/arrows highlighting the NC defect</p>
+        </div>
+        <button @click="closeImageAnnotator" class="p-1 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800">&times;</button>
+      </div>
+
+      <!-- Canvas container -->
+      <div class="relative w-full flex items-center justify-center bg-slate-100 dark:bg-slate-950 rounded-2xl overflow-hidden p-2">
+        <canvas 
+          ref="annotatorCanvas"
+          @mousedown="startDrawingAnnotator"
+          @mousemove="drawAnnotator"
+          @mouseup="stopDrawingAnnotator"
+          @touchstart="startDrawingAnnotatorTouch"
+          @touchmove="drawAnnotatorTouch"
+          @touchend="stopDrawingAnnotator"
+          class="max-w-full max-h-[350px] border border-slate-300 dark:border-slate-800 rounded shadow-sm bg-white"
+        ></canvas>
+      </div>
+
+      <div class="flex justify-between items-center pt-2.5 border-t">
+        <!-- Palette/Undo -->
+        <button 
+          @click="resetAnnotatorCanvas"
+          class="px-3.5 py-1.5 bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 text-xs font-bold rounded-lg"
+        >
+          Clear Drawing (Reset)
+        </button>
+        
+        <div class="flex gap-2">
+          <button 
+            @click="closeImageAnnotator"
+            class="px-4 py-2 rounded-xl text-slate-500 text-xs font-semibold"
+          >
+            Cancel
+          </button>
+          <button 
+            @click="saveImageAnnotation"
+            class="px-5 py-2 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold rounded-xl text-xs transition"
+          >
+            Save Annotation
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+
+  </div> <!-- Closes #app -->
+
+  <!-- Main JS -->
+  <script src="app.js"></script>
+  
+  <script>
+    // Register Service Worker for offline PWA functionality
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js')
+          .then((reg) => console.log('Service Worker Registered successfully', reg.scope))
+          .catch((err) => console.error('Service Worker Registration failed', err));
+      });
+    }
+  </script>
+</body>
+</html>

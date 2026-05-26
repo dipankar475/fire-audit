@@ -1,0 +1,17 @@
+{
+  "short_name": "ElecAudit",
+  "name": "Electrical Safety & Compliance Audit Tool",
+  "icons": [
+    {
+      "src": "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' fill='%23F59E0B'><rect width='100' height='100' rx='20' fill='%231E293B'/><path d='M50 15 L25 55 H45 L35 85 L75 45 H55 Z' fill='%23F59E0B'/></svg>",
+      "type": "image/svg+xml",
+      "sizes": "512x512",
+      "purpose": "any maskable"
+    }
+  ],
+  "start_url": "./index.html",
+  "background_color": "#1E293B",
+  "theme_color": "#0F172A",
+  "display": "standalone",
+  "orientation": "any"
+}
