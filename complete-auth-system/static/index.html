@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SecureAuth Pro — Dual-Factor Authentication Compliance Portal</title>
+  <!-- Outfit & IBM Plex Mono Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- BACKGROUND GRAPHICS -->
+  <div class="glow-orb orb-1"></div>
+  <div class="glow-orb orb-2"></div>
+
+  <!-- TOAST NOTIFICATION CONTAINER -->
+  <div id="toast-container" class="toast-container"></div>
+
+  <div class="wrapper">
+    <!-- AUTHENTICATION CARD (Hidden when logged in) -->
+    <div id="auth-card" class="auth-card">
+      <div class="card-header">
+        <div class="logo">⚡ SecureAuth Pro</div>
+        <p class="subtitle">IDENTITY ACCESS MANAGEMENT CONTROL</p>
+      </div>
+
+      <!-- TABS -->
+      <div class="auth-tabs" id="auth-tabs">
+        <button class="tab-btn active" id="tab-login" onclick="toggleAuthMode('login')">Sign In</button>
+        <button class="tab-btn" id="tab-signup" onclick="toggleAuthMode('signup')">Register</button>
+      </div>
+
+      <!-- LOGIN FORM -->
+      <form id="login-form" class="auth-form" onsubmit="handleLoginStep1(event)">
+        <div class="input-group">
+          <label class="input-label">Email Address</label>
+          <input type="email" id="login-email" placeholder="e.g. auditor@secureauth.pro" class="form-input" required>
+        </div>
+        <div class="input-group">
+          <label class="input-label">Password</label>
+          <input type="password" id="login-password" placeholder="••••••••" class="form-input" required>
+        </div>
+        <button type="submit" class="btn btn-primary" id="btn-login-submit">CONTINUE ACCESS</button>
+      </form>
+
+      <!-- SIGNUP FORM -->
+      <form id="signup-form" class="auth-form" style="display: none;" onsubmit="handleSignup(event)">
+        <div class="input-group">
+          <label class="input-label">Email Address</label>
+          <input type="email" id="signup-email" placeholder="e.g. yourname@secureauth.pro" class="form-input" required>
+        </div>
+        <div class="input-group">
+          <label class="input-label">Password</label>
+          <input type="password" id="signup-password" placeholder="Min 6 characters" class="form-input" required>
+        </div>
+        <button type="submit" class="btn btn-primary" id="btn-signup-submit">CREATE ACCOUNT</button>
+      </form>
+
+      <!-- OTP DIALOG STEP (Shared for Activation and 2FA Login) -->
+      <div id="otp-container" style="display: none;" class="otp-container">
+        <div class="otp-header">
+          <h3 id="otp-title">Verify Your Identity</h3>
+          <p id="otp-subtitle" class="otp-desc">We sent a 6-digit code to your email.</p>
+        </div>
+
+        <form id="otp-form" onsubmit="handleOtpVerification(event)">
+          <div class="input-group">
+            <label class="input-label">Verification Code (OTP)</label>
+            <input type="text" id="otp-code" placeholder="••••••" maxlength="6" class="form-input otp-input" required>
+          </div>
+          
+          <!-- TIMER & EXPIRY -->
+          <div class="timer-bar">
+            <span class="timer-dot"></span>
+            <span id="timer-text" class="timer-text">Code expires in 10:00</span>
+          </div>
+
+          <div style="display: flex; gap: 10px; margin-top: 20px;">
+            <button type="button" class="btn btn-outline" onclick="cancelOtpFlow()" style="flex: 1;">CANCEL</button>
+            <button type="submit" class="btn btn-primary" id="btn-otp-submit" style="flex: 1.5;">CONFIRM</button>
+          </div>
+        </form>
+      </div>
+
+      <!-- FOOTER DEFAULTS INFO -->
+      <div class="credentials-box" id="credentials-box">
+        <strong>Seeded Test Credentials:</strong><br>
+        Admin: <code class="code-cyan">admin@secureauth.pro</code> / <code class="code-cyan">admin123</code><br>
+        User: <code class="code-green">user@secureauth.pro</code> / <code class="code-green">user123</code>
+      </div>
+    </div>
+
+    <!-- MAIN SECURE WORKSPACE (Hidden when logged out) -->
+    <div id="workspace" class="workspace" style="display: none;">
+      <!-- Header Bar -->
+      <header class="workspace-header">
+        <div class="workspace-logo">⚡ SecureAuth Workspace</div>
+        <div class="user-badge-group">
+          <div class="user-info">
+            <span id="user-email-display" class="user-email">guest@secureauth.pro</span>
+            <span id="user-role-badge" class="badge">guest</span>
+          </div>
+          <button class="btn btn-danger btn-sm" onclick="handleLogout()">LOGOUT</button>
+        </div>
+      </header>
+
+      <!-- Main Contents Grid -->
+      <main class="workspace-body">
+        
+        <!-- Welcome Card -->
+        <section class="ws-card">
+          <h2>Welcome to your Secure Session</h2>
+          <p>This is a protected client-side workspace. Your authentication tokens are signed with HMAC-SHA256 and locked inside HTTP-Only session cookies. Route accesses and payloads are verified dynamically by our backend gateway.</p>
+          <div class="status-indicator">
+            <span class="status-dot"></span>
+            <span>Session Status: Active (Authenticated via 2FA)</span>
+          </div>
+        </section>
+
+        <!-- ADMIN CONTROLS MODULE (Visible to Admin Role only) -->
+        <section id="admin-panel" class="ws-card admin-card" style="display: none;">
+          <div class="admin-header">
+            <h3>⚙️ Admin Management Console</h3>
+            <span class="badge badge-bis">Admin Only Access</span>
+          </div>
+          <p class="admin-desc">System diagnostic variables retrieved from database:</p>
+          
+          <div class="admin-stats">
+            <div class="stat-card">
+              <span class="stat-num" id="stat-total-users">0</span>
+              <span class="stat-label">Total Users</span>
+            </div>
+            <div class="stat-card">
+              <span class="stat-num text-green" id="stat-active-users">0</span>
+              <span class="stat-label">Active Users</span>
+            </div>
+            <div class="stat-card font-mono">
+              <span class="stat-num text-cyan" id="stat-admin-users">0</span>
+              <span class="stat-label">Admin Profiles</span>
+            </div>
+          </div>
+
+          <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: 8px; padding: 16px; margin-top: 16px;">
+            <p style="font-size: 12px; color: var(--text-dim); margin-bottom: 0; line-height: 1.5;">
+              <strong>Note:</strong> Rate limits of 5 failed requests per 5 minutes are enforced system-wide. OTP records automatically prune upon use or expiry validation.
+            </p>
+          </div>
+        </section>
+
+      </main>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
